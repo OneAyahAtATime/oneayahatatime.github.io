@@ -111,17 +111,19 @@ const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, workingOn:{}
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 
 /**
- * Learner names are only ever a label. Progress is stored against a numbered
- * slot, so renaming a learner never loses their books.
+ * A reciter's name is only ever a label. Progress is stored against a stable
+ * id, so renaming a reciter — or adding and removing others — never disturbs
+ * anyone else's books.
  *
- * No name ships with the app and none is required: the defaults are neutral,
+ * No name ships with the app and none is required: the default is neutral,
  * families are asked for a nickname rather than a full name, and whatever they
  * type stays in their own browser. Nothing is sent anywhere.
  */
-const LEARNER_SLOTS=2;
-const defaultLearnerName=(slot:number)=>`Learner ${slot+1}`;
-const NAMES_KEY="quran-tracker-learner-names";
-const progressKey=(slot:number)=>`quran-tracker-slot-${slot}`;
+type Reciter = { id:string; name:string };
+const RECITERS_KEY="quran-tracker-reciters";
+const defaultReciterName=(position:number)=>`Reciter ${position}`;
+const progressKey=(id:string)=>`quran-tracker-progress-${id}`;
+const MAX_NAME=24;
 
 /**
  * Fills in anything a stored record is missing, so a save written by an older
@@ -141,27 +143,61 @@ function normalise(raw:unknown,name:string):Saved {
   };
 }
 
-function readLearnerNames():string[] {
-  const fallback=Array.from({length:LEARNER_SLOTS},(_,i)=>defaultLearnerName(i));
-  try {
-    const stored=localStorage.getItem(NAMES_KEY);
-    if(!stored) return fallback;
-    const parsed=JSON.parse(stored);
-    if(!Array.isArray(parsed)) return fallback;
-    return fallback.map((preset,i)=>{
-      const value=parsed[i];
-      return typeof value==="string"&&value.trim() ? value.trim().slice(0,24) : preset;
-    });
-  } catch { return fallback; }
+const cleanName=(value:string,fallback:string)=>value.trim().slice(0,MAX_NAME)||fallback;
+
+/**
+ * Carries over anything saved by the earlier two-slot version, which numbered
+ * its reciters "Learner 1" and "Learner 2". A slot is kept only if it was
+ * actually used; an untouched second slot is dropped, because the app now
+ * starts with a single reciter and lets families add more.
+ */
+function migrateFromSlots():Reciter[] {
+  const carried:Reciter[] = [];
+  let storedNames:unknown = null;
+  try { storedNames = JSON.parse(localStorage.getItem("quran-tracker-learner-names") || "null"); } catch { /* ignore */ }
+
+  for(let slot=0; slot<2; slot++) {
+    const progress = localStorage.getItem(`quran-tracker-slot-${slot}`);
+    const wasUsed = !!progress && progress !== "null" && progress !== "{}";
+    if(slot>0 && !wasUsed) continue;
+
+    const raw = Array.isArray(storedNames) ? storedNames[slot] : null;
+    const preset = defaultReciterName(carried.length+1);
+    // "Learner 2" becomes "Reciter 2"; anything the family typed is kept as-is.
+    const name = typeof raw==="string" && raw.trim() && !/^Learner \d+$/.test(raw.trim())
+      ? cleanName(raw,preset) : preset;
+
+    const id = `s${slot}`;
+    carried.push({ id, name });
+    if(progress) { try { localStorage.setItem(progressKey(id),progress); } catch { /* ignore */ } }
+  }
+  return carried;
 }
 
-function writeLearnerNames(names:string[]):void {
-  try { localStorage.setItem(NAMES_KEY,JSON.stringify(names)); } catch { /* storage blocked */ }
+function readReciters():Reciter[] {
+  const fresh = [{ id:"r1", name:defaultReciterName(1) }];
+  try {
+    const stored = localStorage.getItem(RECITERS_KEY);
+    if(!stored) {
+      const carried = migrateFromSlots();
+      return carried.length ? carried : fresh;
+    }
+    const parsed = JSON.parse(stored);
+    if(!Array.isArray(parsed)) return fresh;
+    const valid = parsed
+      .filter((r):r is Reciter => !!r && typeof r.id==="string" && typeof r.name==="string")
+      .map((r,i)=>({ id:r.id, name:cleanName(r.name,defaultReciterName(i+1)) }));
+    return valid.length ? valid : fresh;
+  } catch { return fresh; }
 }
 
-function readProgress(slot:number,name:string):Saved {
+function writeReciters(reciters:Reciter[]):void {
+  try { localStorage.setItem(RECITERS_KEY,JSON.stringify(reciters)); } catch { /* storage blocked */ }
+}
+
+function readProgress(id:string,name:string):Saved {
   try {
-    const stored=localStorage.getItem(progressKey(slot));
+    const stored=localStorage.getItem(progressKey(id));
     if(stored) return normalise(JSON.parse(stored),name);
   } catch {
     // Unreadable or blocked storage is treated as a fresh start rather than a crash.
@@ -169,19 +205,25 @@ function readProgress(slot:number,name:string):Saved {
   return {...empty,name};
 }
 
-function writeProgress(slot:number,value:Saved):boolean {
-  try { localStorage.setItem(progressKey(slot),JSON.stringify(value)); return true; }
+function writeProgress(id:string,value:Saved):boolean {
+  try { localStorage.setItem(progressKey(id),JSON.stringify(value)); return true; }
   catch { return false; }
+}
+
+function forgetProgress(id:string):void {
+  try { localStorage.removeItem(progressKey(id)); } catch { /* storage blocked */ }
 }
 
 export default function Home() {
   const [saved,setSaved] = useState<Saved>(empty);
-  const [learnerNames,setLearnerNames] = useState<string[]>(readLearnerNames);
-  const [slot,setSlot] = useState(0);
+  const [reciters,setReciters] = useState<Reciter[]>(readReciters);
+  const [activeId,setActiveId] = useState(()=>readReciters()[0].id);
   const [renaming,setRenaming] = useState(false);
-  const [loadedSlot,setLoadedSlot] = useState<number|null>(null);
+  const [confirmRemove,setConfirmRemove] = useState(false);
+  const [loadedId,setLoadedId] = useState<string|null>(null);
   const [syncStatus,setSyncStatus] = useState("Loading…");
-  const learner = learnerNames[slot];
+  const activeIndex = Math.max(0,reciters.findIndex(r=>r.id===activeId));
+  const reciter = reciters[activeIndex]?.name ?? defaultReciterName(1);
   const [activeGroup,setActiveGroup] = useState(0);
   const [color,setColor] = useState(colors[0]);
   const [statusBook,setStatusBook] = useState<{key:string;name:string;juz:number}|null>(null);
@@ -191,25 +233,49 @@ export default function Home() {
 
   // Progress is kept in this browser's own storage. There is no server: the
   // site is a set of static files, so nothing is sent anywhere. Syncing a
-  // learner's progress between devices comes later, via a family code.
+  // reciter's progress between devices comes later, via a family code.
   useEffect(()=>{
-    setSaved(readProgress(slot,learnerNames[slot]));
-    setLoadedSlot(slot);
+    const current=reciters.find(r=>r.id===activeId);
+    setSaved(readProgress(activeId,current?.name ?? defaultReciterName(1)));
+    setLoadedId(activeId);
     setSyncStatus("Saved on this device");
-  // Only the slot should reload progress. Renaming a learner must not.
+  // Only switching reciter reloads progress. Renaming one must not.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  },[slot]);
+  },[activeId]);
   useEffect(()=>{
-    if(loadedSlot!==slot) return;
-    if(!writeProgress(slot,saved)) setSyncStatus("This browser won’t let the app save — check its privacy settings");
-  },[saved,slot,loadedSlot]);
+    if(loadedId!==activeId) return;
+    if(!writeProgress(activeId,saved)) setSyncStatus("This browser won’t let the app save — check its privacy settings");
+  },[saved,activeId,loadedId]);
 
-  const renameLearner=(value:string)=>{
-    const cleaned=value.trim().slice(0,24)||defaultLearnerName(slot);
-    const next=learnerNames.map((n,i)=>i===slot?cleaned:n);
-    setLearnerNames(next);
-    writeLearnerNames(next);
+  const commitReciters=(next:Reciter[])=>{ setReciters(next); writeReciters(next); };
+
+  const renameReciter=(value:string)=>{
+    const cleaned=cleanName(value,defaultReciterName(activeIndex+1));
+    commitReciters(reciters.map(r=>r.id===activeId?{...r,name:cleaned}:r));
     setSaved(s=>({...s,name:cleaned}));
+  };
+
+  const addReciter=()=>{
+    // Ids must stay unique for the lifetime of the browser's storage, so the
+    // counter is based on what already exists rather than on the list length.
+    const taken=new Set(reciters.map(r=>r.id));
+    let n=reciters.length+1;
+    while(taken.has(`r${n}`)) n++;
+    const created:Reciter={ id:`r${n}`, name:defaultReciterName(reciters.length+1) };
+    commitReciters([...reciters,created]);
+    setActiveId(created.id);
+    setRenaming(true);
+    setConfirmRemove(false);
+  };
+
+  const removeReciter=()=>{
+    if(reciters.length<2) return;
+    const remaining=reciters.filter(r=>r.id!==activeId);
+    forgetProgress(activeId);
+    commitReciters(remaining);
+    setActiveId(remaining[Math.min(activeIndex,remaining.length-1)].id);
+    setRenaming(false);
+    setConfirmRemove(false);
   };
 
   const completedBooks = Object.keys(saved.colored).length;
@@ -219,30 +285,45 @@ export default function Home() {
   const weekStart=useMemo(()=>{const d=new Date();const day=(d.getDay()+6)%7;d.setHours(0,0,0,0);d.setDate(d.getDate()-day);return d},[]);
   const practicedThisWeek=(saved.practiceDays||[]).filter(day=>new Date(`${day}T12:00:00`)>=weekStart).length;
   const reviewedCount=Object.values(saved.statuses||{}).filter(v=>v==="practice").length;
+  // Every badge keeps its description whether or not it has been earned, so the
+  // card always says what the badge is for. The highlight already shows which
+  // ones are won.
   const badges=[
-    {icon:"☾",name:"First Light",earned:completedBooks>=1,note:"Color your first book"},
+    {icon:"☾",name:"First Light",earned:completedBooks>=1,note:"Select your first book"},
     {icon:"✦",name:"Shining Star",earned:completeJuz>=1,note:"Complete your first Juz"},
-    {icon:"🏮",name:"Guiding Lantern",earned:practicedThisWeek>=3,note:"Practice 3 days this week"},
-    {icon:"✧",name:"Review Hero",earned:reviewedCount>=5,note:"Choose 5 books to practice again"},
-    {icon:"🕌",name:"Quran Garden",earned:completeJuz>=15,note:"Your memorization garden blooms at 15 Juz"},
+    {icon:"🏮",name:"Guiding Lantern",earned:practicedThisWeek>=3,note:"Practise on 3 days in one week"},
+    {icon:"✧",name:"Review Hero",earned:reviewedCount>=5,note:"Choose 5 books for muraja’ah"},
+    {icon:"🕌",name:"Quran Garden",earned:completeJuz>=15,note:"Complete 15 Juz"},
   ];
   const currentRange=pageGroups[activeGroup];
   const currentJuzs=juzs.filter(j=>j.n>=currentRange[0]&&j.n<=currentRange[1]);
   const rangeLabel=currentRange[0]===currentRange[1]?`Juz ${currentRange[0]}`:`Juz ${currentRange[0]}–${currentRange[1]}`;
 
+  /**
+   * Selecting a book for the first time always starts it at "I'm learning
+   * this" — never at a further-along status. Previously, if that book was the
+   * last uncoloured one in its Juz, it jumped straight to "It's in my heart",
+   * which meant every single-surah Juz began at the wrong status on the very
+   * first tap.
+   */
   const toggle = (key:string) => setSaved(s=>{
     const colored={...s.colored};
-    const wasColored=!!colored[key];
-    if(wasColored) return s;
+    if(colored[key]) return s;
     colored[key]=color;
     const juzNumber=Number(key.split("-")[0]);
     const juz=juzs.find(j=>j.n===juzNumber);
     const nowComplete=!!juz&&juz.surahs.every(n=>colored[`${juzNumber}-${n}`]);
+    const next:Saved={
+      ...s,
+      colored,
+      statuses:{...s.statuses,[key]:"learning"},
+      practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()])),
+    };
     if(nowComplete&&!s.dates[juzNumber]) {
       setTimeout(()=>setCelebrating(juzNumber),120);
-      return {...s,colored,dates:{...s.dates,[juzNumber]:localDay()},statuses:{...s.statuses,[key]:"memorized"},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
+      next.dates={...s.dates,[juzNumber]:localDay()};
     }
-    return {...s,colored,statuses:{...s.statuses,[key]:"learning"},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
+    return next;
   });
   const chooseStatus=(status:RevisionStatus)=>{
     if(!statusBook)return;
@@ -265,31 +346,36 @@ export default function Home() {
     <section className="experience">
       <header className="app-titlebar">
         <div className="app-brand"><span className="brand-moon">☾</span><div><p>ONE AYAH AT A TIME</p><h1>My Quran <span>Memorization Tracker</span></h1></div></div>
-        <div className="child-switch" aria-label="Choose a learner">
+        <div className="child-switch" aria-label="Choose a reciter">
           <span>Whose journey?</span>
-          <div>{learnerNames.map((name,i)=><button key={i} className={slot===i?"selected":""} onClick={()=>{setSlot(i);setRenaming(false)}}>{name}</button>)}</div>
+          <div>
+            {reciters.map(r=><button key={r.id} className={activeId===r.id?"selected":""} onClick={()=>{setActiveId(r.id);setRenaming(false);setConfirmRemove(false)}}>{r.name}</button>)}
+            <button type="button" className="add-reciter" onClick={addReciter} title="Add another reciter">+ Add reciter</button>
+          </div>
           {renaming
-            ? <form className="learner-rename" onSubmit={e=>{e.preventDefault();setRenaming(false)}}>
-                <label htmlFor="learner-name">Nickname</label>
-                <input id="learner-name" autoFocus maxLength={24} value={learner}
-                  onChange={e=>renameLearner(e.target.value)}
-                  onBlur={()=>setRenaming(false)}
-                  placeholder={defaultLearnerName(slot)}/>
+            ? <form className="learner-rename" onSubmit={e=>{e.preventDefault();setRenaming(false);setConfirmRemove(false)}}>
+                <label htmlFor="reciter-name">Nickname</label>
+                <input id="reciter-name" autoFocus maxLength={MAX_NAME} value={reciter}
+                  onChange={e=>renameReciter(e.target.value)}
+                  placeholder={defaultReciterName(activeIndex+1)}/>
                 <button type="submit">Done</button>
                 <small>A nickname is perfect — there’s no need for a full name.</small>
+                {reciters.length>1&&(confirmRemove
+                  ? <p className="remove-confirm">Remove {reciter} and their books? <button type="button" className="danger" onClick={removeReciter}>Yes, remove</button> <button type="button" onClick={()=>setConfirmRemove(false)}>Keep</button></p>
+                  : <button type="button" className="remove-reciter" onClick={()=>setConfirmRemove(true)}>Remove this reciter</button>)}
               </form>
-            : <button type="button" className="rename-learner" onClick={()=>setRenaming(true)}>Rename {learner}</button>}
+            : <button type="button" className="rename-learner" onClick={()=>setRenaming(true)}>Rename {reciter}</button>}
           <small><i className={syncStatus.includes("won’t let")?"error":""}/> {syncStatus}</small>
         </div>
       </header>
 
       <div className="journey-strip" aria-label="Overall memorization progress">
-        <div className="progress-copy"><div><span className="tiny">{learner.toUpperCase()}’S JOURNEY</span><strong>{pct}% complete</strong></div><span>{completeJuz} of 30 Juz completed</span></div>
+        <div className="progress-copy"><div><span className="tiny">{reciter.toUpperCase()}’S JOURNEY</span><strong>{pct}% complete</strong></div><span>{completeJuz} of 30 Juz completed</span></div>
         <div className="progress"><i style={{width:`${pct}%`}}/></div>
         <div className="gentle-streak">☾ You practiced <strong>{practicedThisWeek} {practicedThisWeek===1?"day":"days"}</strong> this week</div>
       </div>
 
-      <section className="achievement-card" aria-label={`${learner}'s achievements`}><div><span className="tiny">A GROWING COLLECTION</span><h2>{learner}’s achievements</h2></div><div className="badges">{badges.map(b=><div key={b.name} className={`badge ${b.earned?"earned":"locked"}`} title={b.earned?`${b.name} earned!`:b.note}><span>{b.icon}</span><b>{b.name}</b><small>{b.earned?"Earned":b.note}</small></div>)}</div></section>
+      <section className="achievement-card" aria-label={`${reciter}'s achievements`}><div><span className="tiny">A GROWING COLLECTION</span><h2>{reciter}’s achievements</h2></div><div className="badges">{badges.map(b=><div key={b.name} className={`badge ${b.earned?"earned":"locked"}`} title={b.earned?`${b.name} earned!`:b.note}><span>{b.icon}</span><b>{b.name}</b><small>{b.note}</small></div>)}</div></section>
 
       <nav className="juz-nav" aria-label="Choose a Juz">
         {pageGroups.map((range,i)=>{const grouped=juzs.filter(j=>j.n>=range[0]&&j.n<=range[1]),done=grouped.every(j=>j.surahs.every(n=>saved.colored[`${j.n}-${n}`])),label=range[0]===range[1]?`${range[0]}`:`${range[0]}–${range[1]}`;return <button key={label} className={`${activeGroup===i?"active":""} ${done?"done":""}`} onClick={()=>setActiveGroup(i)} aria-current={activeGroup===i?"page":undefined} aria-label={`Juz ${label}`}><small>Juz</small><strong>{label}</strong><span>{done?"✓":""}</span></button>})}
@@ -306,9 +392,9 @@ export default function Home() {
 
     {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{updateWork(juz.n,"surah",surahs[n-1].en);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}<button className="unmark" onClick={()=>setNextUp(null)}>Not right now</button></section></div>})()}
 
-    {celebrating&&<div className="celebration" role="dialog" aria-modal="true"><div className="confetti" aria-hidden="true">{Array.from({length:28},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div><div className="celebrate-card"><img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/><p className="eyebrow">A BEAUTIFUL MILESTONE</p><h2>MashaAllah, {learner}!</h2><p>You completed Juz {celebrating}. May every ayah stay bright in your heart.</p><div><button onClick={()=>{setCertificate(celebrating);setCelebrating(null)}}>See my certificate</button><button className="quiet" onClick={()=>setCelebrating(null)}>Keep exploring</button></div></div></div>}
+    {celebrating&&<div className="celebration" role="dialog" aria-modal="true"><div className="confetti" aria-hidden="true">{Array.from({length:28},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div><div className="celebrate-card"><img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/><p className="eyebrow">A BEAUTIFUL MILESTONE</p><h2>MashaAllah, {reciter}!</h2><p>You completed Juz {celebrating}. May every ayah stay bright in your heart.</p><div><button onClick={()=>{setCertificate(celebrating);setCelebrating(null)}}>See my certificate</button><button className="quiet" onClick={()=>setCelebrating(null)}>Keep exploring</button></div></div></div>}
 
-    {certificate&&<div className="certificate-screen" role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>MashaAllah!</h2><span>This certificate celebrates</span><h1>{learner}</h1><span>for completing</span><h3>Juz {certificate}</h3><p className="cert-date">Completed {new Date(`${saved.dates[certificate]}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"})}</p><div className="cert-dua">May Allah fill your heart with the light of the Quran.</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>}
+    {certificate&&<div className="certificate-screen" role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>MashaAllah!</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>for completing</span><h3>Juz {certificate}</h3><p className="cert-date">Completed {new Date(`${saved.dates[certificate]}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"})}</p><div className="cert-dua">May Allah fill your heart with the light of the Quran.</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>}
 
     <footer><span>☾</span><p>May every page bring your heart closer to the Quran.</p><span>♥</span></footer>
   </main>
@@ -321,9 +407,9 @@ function IllustratedTracker({juzs,saved,toggle,update,updateWork,clearWork,openS
       <ArtCanvas juzs={juzs} saved={saved}/>
       {juzs.flatMap(juz=>juz.surahs.map((n,i)=>{const s=surahs[n-1],key=`${juz.n}-${n}`,fill=saved.colored[key],status=saved.statuses[key]||(fill?"learning":undefined),r=juz.n!==30&&isolatedInteractionKeys.has(key)?targetedPaintRects[key]:fullBookRect(juz.n,bookRects[juz.n][i]),ir=iconRects[key];return <button key={key} className={`art-book ${fill?"filled":""} status-${status||"none"}`} style={{left:`${r[0]}%`,top:`${r[1]/crop*100}%`,width:`${r[2]}%`,height:`${r[3]/crop*100}%`,"--fill":fill||"#e05287"} as React.CSSProperties} onClick={()=>fill?openStatus({key,name:s.en,juz:juz.n}):toggle(key)} aria-pressed={!!fill} aria-label={`${fill?`Set revision status for ${s.en}`:`Mark ${s.en}`} in Juz ${juz.n}`} title={fill?`${s.en} — ${statusMeta[status!].label}`:`${s.en} — tap to color`}>{fill&&<JourneyIcon status={status!} style={ir?{left:`${(ir[0]-r[0])/r[2]*100}%`,top:`${(ir[1]-r[1])/r[3]*100}%`,width:`${ir[2]/r[2]*100}%`,height:`${ir[3]/r[3]*100}%`}:undefined}/>}</button>}))}
     </div>
-    <div className="art-actions"><p className="tap-hint"><span>✦</span> Tap the books directly in the artwork to color them <span>✦</span></p></div>
+    <div className="art-actions"><p className="tap-hint"><span>✦</span> Tap the books directly in the artwork to select them <span>✦</span></p></div>
     <div className="group-notes" aria-label={`${groupLabel} completion details`}>
-      {juzs.map(juz=><div className="juz-note-row" key={juz.n}><b>Juz {juz.n}</b><div className="auto-date"><JourneyIcon status="memorized"/><div>Date completed<strong>{saved.dates[juz.n]?new Date(`${saved.dates[juz.n]}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"}):"Added automatically when every book is colored"}</strong>{saved.dates[juz.n]&&<button className="certificate-link" onClick={()=>openCertificate(juz.n)}>View certificate</button>}</div></div><label><span>♥</span><div>Favorite Surah<input value={saved.favorites[juz.n]||""} onChange={e=>update("favorites",String(juz.n),e.target.value)} placeholder="Write a favorite…"/></div></label><div className="current-work"><JourneyIcon status="learning"/><div><strong>Currently memorizing</strong><div className="work-fields"><select aria-label={`Surah currently being memorized in Juz ${juz.n}`} value={saved.workingOn[juz.n]?.surah||""} onChange={e=>updateWork(juz.n,"surah",e.target.value)}><option value="">Not working on one right now</option>{juz.surahs.map(n=><option key={n} value={surahs[n-1].en}>{surahs[n-1].en}</option>)}</select><input aria-label={`Ayahs currently being memorized in Juz ${juz.n}`} value={saved.workingOn[juz.n]?.ayahs||""} onChange={e=>updateWork(juz.n,"ayahs",e.target.value)} placeholder="Ayahs, e.g. 1–5"/>{(saved.workingOn[juz.n]?.surah||saved.workingOn[juz.n]?.ayahs)&&<button type="button" className="clear-work" onClick={()=>clearWork(juz.n)} aria-label={`Clear what is being memorized in Juz ${juz.n}`} title="Clear this">×</button>}</div></div></div><div className="book-journey"><strong>Book journey</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Color a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div></div>)}
+      {juzs.map(juz=><div className="juz-note-row" key={juz.n}><b>Juz {juz.n}</b><div className="auto-date"><JourneyIcon status="memorized"/><div>Date completed<strong>{saved.dates[juz.n]?new Date(`${saved.dates[juz.n]}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"}):"Added automatically when every book is colored"}</strong>{saved.dates[juz.n]&&<button className="certificate-link" onClick={()=>openCertificate(juz.n)}>View certificate</button>}</div></div><label><span>♥</span><div>Favorite Surah<input value={saved.favorites[juz.n]||""} onChange={e=>update("favorites",String(juz.n),e.target.value)} placeholder="Write a favorite…"/></div></label><div className="current-work"><JourneyIcon status="learning"/><div><strong>Currently memorizing</strong><div className="work-fields"><select aria-label={`Surah currently being memorized in Juz ${juz.n}`} value={saved.workingOn[juz.n]?.surah||""} onChange={e=>updateWork(juz.n,"surah",e.target.value)}><option value="">Not working on one right now</option>{juz.surahs.map(n=><option key={n} value={surahs[n-1].en}>{surahs[n-1].en}</option>)}</select><input aria-label={`Ayahs currently being memorized in Juz ${juz.n}`} value={saved.workingOn[juz.n]?.ayahs||""} onChange={e=>updateWork(juz.n,"ayahs",e.target.value)} placeholder="Ayahs, e.g. 1–5"/>{(saved.workingOn[juz.n]?.surah||saved.workingOn[juz.n]?.ayahs)&&<button type="button" className="clear-work" onClick={()=>clearWork(juz.n)} aria-label={`Clear what is being memorized in Juz ${juz.n}`} title="Clear this">×</button>}</div></div></div><div className="book-journey"><strong>Book journey</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Select a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div></div>)}
     </div>
   </div>
 }

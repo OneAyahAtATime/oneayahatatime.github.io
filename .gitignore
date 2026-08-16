@@ -22,3 +22,6 @@ CONTEXT.md
 
 # NOTE: /docs is deliberately NOT ignored. It is the built site that
 # GitHub Pages serves, so it has to be committed.
+
+# local scratch from the file bridge (it cannot delete)
+.scratch/

@@ -68,3 +68,13 @@
 .learner-rename input:focus{outline:0;border-color:#7d5bd1;box-shadow:0 0 0 3px #e3d5f2}
 .learner-rename button{border:0;background:#673fa5;color:#fff;font-weight:800;border-radius:99px;padding:8px 16px;cursor:pointer;font-size:.8rem}
 .learner-rename small{grid-column:1/-1;font-size:.66rem;font-weight:600;color:#8a6fb0;max-width:16rem;text-align:center;line-height:1.35}
+
+/* Adding and removing reciters. The app starts with one; families add more. */
+.child-switch>div{flex-wrap:wrap;justify-content:center}
+.add-reciter{border:1.5px dashed #b79ad4 !important;color:#6b4a9c !important;font-weight:800;padding:8px 14px !important;background:transparent !important}
+.add-reciter:hover{background:#f3ecfa !important;border-color:#8a62c7 !important}
+.remove-reciter{grid-column:1/-1;border:0;background:transparent;color:#96739c;font-size:.68rem;font-weight:700;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:2px}
+.remove-reciter:hover{color:#a8446b}
+.remove-confirm{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;font-size:.7rem;font-weight:700;color:#6b4a9c;margin:0;max-width:18rem;text-align:center}
+.remove-confirm button{border:0;border-radius:99px;padding:5px 12px;font-weight:800;font-size:.7rem;cursor:pointer;background:#e7dcf2;color:#4f2f7d}
+.remove-confirm button.danger{background:#c2456f;color:#fff}
