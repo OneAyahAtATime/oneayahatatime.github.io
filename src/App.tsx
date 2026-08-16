@@ -118,8 +118,16 @@ function JourneyIcon({status,className="",style}:{status:RevisionStatus;classNam
   const src=asset(status==="learning"?"status-art/learning-moon.png":status==="memorized"?"status-art/memorized-star.png":"status-art/practice-beads.png");
   return <span className={`journey-icon journey-${status} ${className}`} style={style} aria-hidden="true"><img src={src} alt=""/></span>;
 }
-type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; practiceDays:string[] };
-const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, workingOn:{}, statuses:{}, practiceDays:[] };
+/**
+ * `ayahs` is keyed by book ("<juz>-<surah>"), so every surah being learned can
+ * carry its own range. It used to be one note per Juz, which meant a Juz with
+ * six surahs could only remember one of them.
+ *
+ * `workingOn` is the old per-Juz shape. It is read once and migrated, then left
+ * alone so an older save is never lost.
+ */
+type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; practiceDays:string[] };
+const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, practiceDays:[] };
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 
 /**
@@ -138,6 +146,22 @@ const progressKey=(id:string)=>`quran-tracker-progress-${id}`;
 const MAX_NAME=24;
 
 /**
+ * Carries the old one-note-per-Juz field across to per-book notes, matching the
+ * remembered surah name back to its book.
+ */
+function ayahsFromWorkingOn(workingOn:Record<string,CurrentWork>|undefined):Record<string,string> {
+  const carried:Record<string,string> = {};
+  if(!workingOn) return carried;
+  for(const [juzKey,work] of Object.entries(workingOn)) {
+    if(!work?.ayahs) continue;
+    const juz=juzs.find(j=>String(j.n)===juzKey);
+    const surah=juz?.surahs.find(n=>surahs[n-1].en===work.surah);
+    if(juz&&surah) carried[`${juz.n}-${surah}`]=work.ayahs;
+  }
+  return carried;
+}
+
+/**
  * Fills in anything a stored record is missing, so a save written by an older
  * version of the app can never leave a field undefined.
  */
@@ -149,6 +173,7 @@ function normalize(raw:unknown,name:string):Saved {
     colored:partial.colored??{},
     dates:partial.dates??{},
     favorites:partial.favorites??{},
+    ayahs:partial.ayahs??ayahsFromWorkingOn(partial.workingOn),
     workingOn:partial.workingOn??{},
     statuses:partial.statuses??{},
     practiceDays:partial.practiceDays??[],
@@ -344,8 +369,6 @@ export default function Home() {
   const chooseStatus=(status:RevisionStatus)=>{
     if(!statusBook)return;
     const {key,juz,name}=statusBook;
-    const wasCurrent=status==="memorized"&&saved.workingOn[juz]?.surah===name;
-
     // Worked out here, from current state, rather than inside the updater —
     // the updater runs during a later render, so anything it sets would still
     // be false by the time the lines below run.
@@ -356,18 +379,19 @@ export default function Home() {
 
     setSaved(s=>{
       const next:Saved={...s,statuses:{...s.statuses,[key]:status},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
-      if(wasCurrent){const workingOn={...s.workingOn};delete workingOn[juz];next.workingOn=workingOn}
       if(justFinishedJuz) next.dates={...s.dates,[juz]:localDay()};
       return next;
     });
     setStatusBook(null);
     if(justFinishedJuz) setTimeout(()=>setCelebrating(juz),160);
-    else if(wasCurrent) setTimeout(()=>setNextUp({juz,name}),140);
+    // Finishing one surah is a good moment to ask what comes next in this Juz.
+    else if(status==="memorized") setTimeout(()=>setNextUp({juz,name}),140);
   };
   const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};delete colored[statusBook.key];delete statuses[statusBook.key];delete dates[statusBook.juz];return {...s,colored,statuses,dates}});setStatusBook(null)};
   const update = (field:"name"|"dates"|"favorites", key:string, value:string) => setSaved(s=> field==="name" ? {...s,name:value} : {...s,[field]:{...s[field],[key]:value}});
-  const updateWork = (juz:number,field:keyof CurrentWork,value:string) => setSaved(s=>({...s,workingOn:{...s.workingOn,[juz]:{surah:s.workingOn[juz]?.surah||"",ayahs:s.workingOn[juz]?.ayahs||"",[field]:value}}}));
-  const clearWork = (juz:number) => setSaved(s=>{const workingOn={...s.workingOn};delete workingOn[juz];return {...s,workingOn}});
+  const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value}}));
+  /** Marking a book as being learned is how a family says "this is what we're on". */
+  const startLearning = (key:string) => setSaved(s=>({...s,statuses:{...s.statuses,[key]:"learning"},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
 
   return <main>
     <section className="experience">
@@ -415,7 +439,7 @@ export default function Home() {
       </>}
 
       {onHome ? <>
-        <MemorizingNow saved={saved} openJuz={openJuz} clearWork={clearWork}/>
+        <MemorizingNow saved={saved} openJuz={openJuz}/>
         <section className="juz-overview" aria-label="All 30 Juz">
           <div className="tracker-top"><h2>Choose a Juz</h2></div>
           <div className="juz-tiles">
@@ -442,16 +466,16 @@ export default function Home() {
         </nav>
 
         <div className="tracker-top">
-          <div><p className="eyebrow">TAP THE BOOKS IN THE ARTWORK</p><h2>{rangeLabel}</h2></div>
+          <h2>{rangeLabel}</h2>
           <div className="tools"><span>Book color</span>{colorOptions.map(option=><button key={option.value} aria-label={`Choose ${option.label}`} title={option.label} aria-pressed={color===option.value} className={`swatch ${option.background?"blend-swatch":""}`} onClick={()=>setColor(option.value)} style={{background:option.background||option.value}}/>)}</div>
         </div>
-        <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateWork={updateWork} clearWork={clearWork} openStatus={setStatusBook} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}/>
+        <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateAyahs={updateAyahs} openStatus={setStatusBook} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}/>
       </>}
     </section>
 
     {statusBook&&<div className="modal-backdrop" onMouseDown={()=>setStatusBook(null)}><section className="status-dialog" role="dialog" aria-modal="true" aria-label={`Revision status for ${statusBook.name}`} onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setStatusBook(null)}>×</button><img className="status-masjid" src={asset("status-art/status-masjid.png")} alt="Watercolor masjid"/><p className="eyebrow">HOW IS THIS SURAH GOING?</p><h2>{statusBook.name}</h2><p>Choose a gentle reminder for your journey.</p><div className="status-choices">{journeyOrder.map(status=><button key={status} className={saved.statuses[statusBook.key]===status?"selected":undefined} aria-pressed={saved.statuses[statusBook.key]===status} onClick={()=>chooseStatus(status)}><JourneyIcon status={status}/><b>{statusMeta[status].label}</b>{statusMeta[status].hint&&<small className="status-hint">{statusMeta[status].hint}</small>}</button>)}<button className="status-reset" onClick={unmarkBook}><BlankBookIcon/><b>I haven’t started this yet</b><small className="status-hint">Puts this book back to blank so it can be colored in again whenever you like.</small></button></div></section></div>}
 
-    {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{updateWork(juz.n,"surah",surahs[n-1].en);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}<button className="unmark" onClick={()=>setNextUp(null)}>Not right now</button></section></div>})()}
+    {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{startLearning(`${juz.n}-${n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}<button className="unmark" onClick={()=>setNextUp(null)}>Not right now</button></section></div>})()}
 
     {celebrating&&<div className="celebration" role="dialog" aria-modal="true"><div className="confetti" aria-hidden="true">{Array.from({length:28},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div><div className="celebrate-card"><img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/><p className="eyebrow">A BEAUTIFUL MILESTONE</p><h2>MashaAllah, {reciter}!</h2><p>You completed Juz {celebrating}. May every ayah stay bright in your heart.</p><div><button onClick={()=>{setCertificate(celebrating);setCelebrating(null)}}>See my certificate</button><button className="quiet" onClick={()=>setCelebrating(null)}>Keep exploring</button></div></div></div>}
 
@@ -466,23 +490,20 @@ export default function Home() {
  * on the home screen. Without this a family has to open all eight artwork pages
  * to remember what they were working on.
  */
-function MemorizingNow({saved,openJuz,clearWork}:{saved:Saved;openJuz:(n:number)=>void;clearWork:(juz:number)=>void}) {
-  // Every book marked "I'm learning this" belongs here, not only the ones
-  // chosen in the Currently memorizing dropdown. Coloring a book is the
-  // normal way to start one, so it has to be what fills this list.
-  const items:{key:string;juz:number;name:string;ayahs:string;fromDropdown:boolean}[]=[];
+/**
+ * Everything being learned right now, gathered from every Juz. These are the
+ * books marked "I'm learning this" — there is no separate list to maintain.
+ * Rendered as the same compact chips used in Book journey, since a family can
+ * end up with a lot of them at once.
+ */
+function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
+  const items:{key:string;juz:number;name:string;ayahs:string}[]=[];
   for(const juz of juzs) {
-    const work=saved.workingOn[juz.n];
-    const learning=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="learning");
-    for(const n of learning) {
-      const name=surahs[n-1].en;
-      items.push({key:`${juz.n}-${n}`,juz:juz.n,name,ayahs:work?.surah===name?(work.ayahs||""):"",fromDropdown:false});
+    for(const n of juz.surahs) {
+      const key=`${juz.n}-${n}`;
+      if(saved.statuses[key]!=="learning") continue;
+      items.push({key,juz:juz.n,name:surahs[n-1].en,ayahs:saved.ayahs[key]||""});
     }
-    // A surah chosen in the dropdown but not yet colored still belongs here.
-    if(work?.surah&&!learning.some(n=>surahs[n-1].en===work.surah))
-      items.push({key:`w${juz.n}`,juz:juz.n,name:work.surah,ayahs:work.ayahs||"",fromDropdown:true});
-    else if(work&&!work.surah&&work.ayahs)
-      items.push({key:`w${juz.n}`,juz:juz.n,name:"A surah in this Juz",ayahs:work.ayahs,fromDropdown:true});
   }
 
   return <section className="memorizing-now" aria-label="Currently memorizing">
@@ -490,19 +511,17 @@ function MemorizingNow({saved,openJuz,clearWork}:{saved:Saved;openJuz:(n:number)
     {items.length===0
       ? <p className="memorizing-empty"><JourneyIcon status="learning"/><span>Nothing yet. Color a book in any Juz and it will appear here while you learn it.</span></p>
       : <div className="memorizing-list">{items.map(item=>
-          <div className="memorizing-item" key={item.key}>
+          <button className="memorizing-chip" key={item.key} onClick={()=>openJuz(item.juz)}
+            title={`Open Juz ${item.juz}`}>
             <JourneyIcon status="learning"/>
-            <button className="memorizing-open" onClick={()=>openJuz(item.juz)}>
-              <b>{item.name}</b>
-              <small>Juz {item.juz}{item.ayahs?` · ayahs ${item.ayahs}`:""}</small>
-            </button>
-            {item.fromDropdown&&<button className="clear-work" title={`Clear what is being memorized in Juz ${item.juz}`} aria-label={`Clear what is being memorized in Juz ${item.juz}`} onClick={()=>clearWork(item.juz)}>×</button>}
-          </div>)}
+            <b>{item.name}</b>
+            <small>Juz {item.juz}{item.ayahs?` · ${item.ayahs}`:""}</small>
+          </button>)}
         </div>}
   </section>;
 }
 
-function IllustratedTracker({juzs,saved,toggle,update,updateWork,clearWork,openStatus,openCertificate,openRow,setOpenRow}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateWork:(juz:number,field:keyof CurrentWork,value:string)=>void;clearWork:(juz:number)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void}) {
+function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,openCertificate,openRow,setOpenRow}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateAyahs:(key:string,value:string)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void}) {
   const first=juzs[0],crop=cropForJuz(first.n),groupLabel=juzs.length===1?`Juz ${first.n}`:`Juz ${first.n}–${juzs[juzs.length-1].n}`;
   return <div className="integrated-tracker">
     <div className={`interactive-art ${first.n===30?"wide-art":""}`}>
@@ -529,7 +548,36 @@ function IllustratedTracker({juzs,saved,toggle,update,updateWork,clearWork,openS
         <button type="button" className="row-toggle" aria-expanded={expanded} onClick={()=>setOpenRow(expanded?null:juz.n)}>
           <b>Juz {juz.n}</b><span className="row-summary">{summary}</span><span className="row-chevron" aria-hidden="true">{expanded?"▾":"▸"}</span>
         </button>
-        {expanded&&<div className="row-body"><div className="auto-date"><JourneyIcon status="memorized"/><div>Date memorized<strong>{saved.dates[juz.n]?new Date(`${saved.dates[juz.n]}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"}):"Added automatically once every book is in your heart"}</strong>{saved.dates[juz.n]&&<button className="certificate-link" onClick={()=>openCertificate(juz.n)}>View certificate</button>}</div></div><label><span>♥</span><div>Favorite Surah<input value={saved.favorites[juz.n]||""} onChange={e=>update("favorites",String(juz.n),e.target.value)} placeholder="Write a favorite…"/></div></label><div className="current-work"><JourneyIcon status="learning"/><div><strong>Currently memorizing</strong><div className="work-fields"><select aria-label={`Surah currently being memorized in Juz ${juz.n}`} value={saved.workingOn[juz.n]?.surah||""} onChange={e=>updateWork(juz.n,"surah",e.target.value)}><option value="">Not working on one right now</option>{juz.surahs.map(n=><option key={n} value={surahs[n-1].en}>{surahs[n-1].en}</option>)}</select><input aria-label={`Ayahs currently being memorized in Juz ${juz.n}`} value={saved.workingOn[juz.n]?.ayahs||""} onChange={e=>updateWork(juz.n,"ayahs",e.target.value)} placeholder="Ayahs, e.g. 1–5"/>{(saved.workingOn[juz.n]?.surah||saved.workingOn[juz.n]?.ayahs)&&<button type="button" className="clear-work" onClick={()=>clearWork(juz.n)} aria-label={`Clear what is being memorized in Juz ${juz.n}`} title="Clear this">×</button>}</div></div></div><div className="book-journey"><strong>Book journey</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Select a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div></div>}</div>;
+        {expanded&&<div className="row-body">
+          <div className="row-facts">
+            <div className="auto-date"><JourneyIcon status="memorized"/><div>Date memorized<strong>{saved.dates[juz.n]?new Date(`${saved.dates[juz.n]}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"}):"Added once every book is in your heart"}</strong>{saved.dates[juz.n]&&<button className="certificate-link" onClick={()=>openCertificate(juz.n)}>View certificate</button>}</div></div>
+            <label><span>♥</span><div>Favorite Surah<input value={saved.favorites[juz.n]||""} onChange={e=>update("favorites",String(juz.n),e.target.value)} placeholder="Write a favorite…"/></div></label>
+          </div>
+
+          {/*
+            Every book marked "I'm learning this" appears here with its own
+            ayah box. There used to be a dropdown and a single note for the
+            whole Juz, which meant a Juz could only remember one surah, and
+            marking a book as being learned did not show up here at all.
+          */}
+          <div className="current-work"><JourneyIcon status="learning"/><div>
+            <strong>Currently memorizing</strong>
+            {(()=>{
+              const learning=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="learning");
+              if(!learning.length) return <p className="work-empty">Nothing yet. Tap a book in the artwork above, or set one to <em>I’m learning this</em>, and it will appear here with a place for its ayahs.</p>;
+              return <div className="work-list">{learning.map(n=>{
+                const key=`${juz.n}-${n}`;
+                return <div className="work-row" key={key}>
+                  <b>{surahs[n-1].en}</b>
+                  <input aria-label={`Ayahs being memorized in ${surahs[n-1].en}`} value={saved.ayahs[key]||""} onChange={e=>updateAyahs(key,e.target.value)} placeholder="Ayahs, e.g. 1–5"/>
+                </div>;
+              })}</div>;
+            })()}
+          </div></div>
+
+          <div className="book-journey"><strong>Book journey</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Select a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div>
+        </div>}
+      </div>;
       })}
     </div>
   </div>

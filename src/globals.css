@@ -199,3 +199,49 @@
   .journey-group h4{margin:0 0 5px !important}
   .juz-nav button strong{font-size:.72rem}
 }
+
+/* ===== Round 6 ===================================================== */
+
+/* The "Tap the books / Juz N / Book color" block was three storeys tall for
+   what is really one line of controls. */
+.tracker-top{padding:10px 16px !important;margin-bottom:10px}
+.tracker-top .eyebrow{margin:0 0 1px;font-size:.55rem}
+.tracker-top h2{font-size:1.3rem;margin:0}
+.tools{gap:5px}
+.tools>span{font-size:.66rem}
+.tools .swatch{width:20px;height:20px;border-width:2px}
+
+/* Date memorized and Favorite Surah share a line. */
+.row-facts{display:grid;grid-template-columns:1fr 1fr;gap:10px 22px;align-items:start}
+.row-facts>*{min-width:0}
+.row-facts .auto-date,.row-facts>label{align-items:flex-start}
+.row-facts .auto-date strong,.row-facts>label input{display:block;font-size:.82rem}
+.row-facts .auto-date>div,.row-facts>label>div{min-width:0;flex:1;font-size:.72rem;font-weight:800;color:#6b4a8f}
+.row-facts .auto-date strong{font-weight:800;color:#2b1a4d;line-height:1.35}
+@media (max-width:720px){ .row-facts{grid-template-columns:1fr} }
+
+/* One ayah box per book being learned. */
+.work-list{display:grid;gap:6px;margin-top:5px}
+.work-row{display:flex;align-items:center;gap:10px}
+.work-row b{flex:0 0 9.5rem;font-size:.82rem;color:#2b1a4d}
+.work-row input{flex:1;min-width:0}
+.work-empty{margin:4px 0 0;font-size:.75rem;font-weight:600;color:#7d63a3;line-height:1.4}
+.work-empty em{font-style:normal;font-weight:800;color:#5b3a90}
+@media (max-width:640px){ .work-row{display:block} .work-row b{display:block;margin-bottom:3px} }
+
+/* Home-screen chips match the Book journey chips. */
+.memorizing-list{display:flex;flex-wrap:wrap;gap:7px}
+.memorizing-chip{display:flex;align-items:center;gap:7px;padding:5px 12px 5px 6px;border-radius:99px;
+  border:1.5px solid #d9c7ea;background:#fdfaff;cursor:pointer;color:#2b1a4d;text-align:left}
+.memorizing-chip:hover{border-color:#9c7ad6;background:#f6eefc}
+.memorizing-chip .journey-icon{width:22px;height:22px;flex:0 0 auto}
+.memorizing-chip b{font-size:.82rem;font-weight:800}
+.memorizing-chip small{font-size:.68rem;font-weight:700;color:#8a72ab}
+
+/* Title and colour picker sit on one line. */
+.tracker-top{align-items:center !important;flex-wrap:wrap;row-gap:8px}
+
+/* A later rule (inside a media query) was still setting the page heading to
+   2rem with a tall line box, which is where the height was going. */
+.tracker-top h2{font-size:1.35rem !important;line-height:1.25 !important}
+.memorizing-now .tracker-top h2,.juz-overview .tracker-top h2{font-size:1.15rem !important}
