@@ -14,17 +14,14 @@ const surahs: Surah[] = [
   [1,"الفاتحة","Al-Fatiha"],[2,"البقرة","Al-Baqarah"],[3,"آل عمران","Aal Imran"],[4,"النساء","An-Nisa"],[5,"المائدة","Al-Ma’idah"],[6,"الأنعام","Al-An’am"],[7,"الأعراف","Al-A’raf"],[8,"الأنفال","Al-Anfal"],[9,"التوبة","At-Tawbah"],[10,"يونس","Yunus"],[11,"هود","Hud"],[12,"يوسف","Yusuf"],[13,"الرعد","Ar-Ra’d"],[14,"إبراهيم","Ibrahim"],[15,"الحجر","Al-Hijr"],[16,"النحل","An-Nahl"],[17,"الإسراء","Al-Isra"],[18,"الكهف","Al-Kahf"],[19,"مريم","Maryam"],[20,"طه","Ta-Ha"],[21,"الأنبياء","Al-Anbiya"],[22,"الحج","Al-Hajj"],[23,"المؤمنون","Al-Mu’minun"],[24,"النور","An-Nur"],[25,"الفرقان","Al-Furqan"],[26,"الشعراء","Ash-Shu’ara"],[27,"النمل","An-Naml"],[28,"القصص","Al-Qasas"],[29,"العنكبوت","Al-Ankabut"],[30,"الروم","Ar-Rum"],[31,"لقمان","Luqman"],[32,"السجدة","As-Sajdah"],[33,"الأحزاب","Al-Ahzab"],[34,"سبأ","Saba"],[35,"فاطر","Fatir"],[36,"يس","Ya-Sin"],[37,"الصافات","As-Saffat"],[38,"ص","Sad"],[39,"الزمر","Az-Zumar"],[40,"غافر","Ghafir"],[41,"فصلت","Fussilat"],[42,"الشورى","Ash-Shura"],[43,"الزخرف","Az-Zukhruf"],[44,"الدخان","Ad-Dukhan"],[45,"الجاثية","Al-Jathiyah"],[46,"الأحقاف","Al-Ahqaf"],[47,"محمد","Muhammad"],[48,"الفتح","Al-Fath"],[49,"الحجرات","Al-Hujurat"],[50,"ق","Qaf"],[51,"الذاريات","Adh-Dhariyat"],[52,"الطور","At-Tur"],[53,"النجم","An-Najm"],[54,"القمر","Al-Qamar"],[55,"الرحمن","Ar-Rahman"],[56,"الواقعة","Al-Waqi’ah"],[57,"الحديد","Al-Hadid"],[58,"المجادلة","Al-Mujadilah"],[59,"الحشر","Al-Hashr"],[60,"الممتحنة","Al-Mumtahanah"],[61,"الصف","As-Saff"],[62,"الجمعة","Al-Jumu’ah"],[63,"المنافقون","Al-Munafiqun"],[64,"التغابن","At-Taghabun"],[65,"الطلاق","At-Talaq"],[66,"التحريم","At-Tahrim"],[67,"الملك","Al-Mulk"],[68,"القلم","Al-Qalam"],[69,"الحاقة","Al-Haqqah"],[70,"المعارج","Al-Ma’arij"],[71,"نوح","Nuh"],[72,"الجن","Al-Jinn"],[73,"المزمل","Al-Muzzammil"],[74,"المدثر","Al-Muddaththir"],[75,"القيامة","Al-Qiyamah"],[76,"الإنسان","Al-Insan"],[77,"المرسلات","Al-Mursalat"],[78,"النبأ","An-Naba’"],[79,"النازعات","An-Naziat"],[80,"عبس","‘Abasa"],[81,"التكوير","At-Takweer"],[82,"الإنفطار","Al-Infitar"],[83,"المطففين","Al-Mutaffifin"],[84,"الإنشقاق","Al-Inshiqaq"],[85,"البروج","Al-Burooj"],[86,"الطارق","At-Tariq"],[87,"الأعلى","Al-A’la"],[88,"الغاشية","Al-Ghashiyah"],[89,"الفجر","Al-Fajr"],[90,"البلد","Al-Balad"],[91,"الشمس","Ash-Shams"],[92,"الليل","Al-Layl"],[93,"الضحى","Ad-Duha"],[94,"الشرح","Ash-Sharh"],[95,"التين","At-Teen"],[96,"العلق","Al-‘Alaq"],[97,"القدر","Al-Qadr"],[98,"البينة","Al-Bayyinah"],[99,"الزلزلة","Az-Zalzalah"],[100,"العاديات","Al-‘Adiyat"],[101,"القارعة","Al-Qari’ah"],[102,"التكاثر","At-Takathur"],[103,"العصر","Al-‘Asr"],[104,"الهمزة","Al-Humazah"],[105,"الفيل","Al-Feel"],[106,"قريش","Quraish"],[107,"الماعون","Al-Ma’oon"],[108,"الكوثر","Al-Kawthar"],[109,"الكافرون","Al-Kafiroon"],[110,"النصر","An-Nasr"],[111,"المسد","Al-Masad"],[112,"الإخلاص","Al-Ikhlas"],[113,"الفلق","Al-Falaq"],[114,"الناس","An-Nas"],
 ].map(([n,ar,en]) => ({ n: n as number, ar: ar as string, en: en as string }));
 
-// Each Juz is traditionally named after its opening words. All 30 are listed so
-// the labels are consistent — previously only 23-30 had one, which looked like
-// a mistake on the home screen.
+// Juz names are taken from the artwork, so the app and the pages always agree.
+// Only the Juz 19-30 pages print a name; 1-18 have none, so none is shown.
 const rawJuz: [number, number[], string?][] = [
-  [1,[1,2],"Alif Lam Mim"],[2,[2],"Sayaqul"],[3,[3],"Tilka ar-Rusul"],[4,[4],"Lan Tanalu"],
-  [5,[4],"Wal-Muhsanat"],[6,[5],"La Yuhibbullah"],[7,[6],"Wa Idha Sami’u"],[8,[7],"Wa Law Annana"],
-  [9,[8],"Qal al-Mala’"],[10,[9],"Wa A‘lamu"],[11,[10,11],"Ya‘tadhiruna"],[12,[12],"Wa Ma Min Dabbah"],
-  [13,[13,14],"Wa Ma Ubarri’u"],[14,[15,16],"Rubama"],[15,[17,18],"Subhana alladhi"],[16,[19,20],"Qala Alam"],
-  [17,[21,22],"Iqtaraba"],[18,[23,24,25],"Qad Aflaha"],[19,[26,27],"Wa Qala alladhina"],[20,[28,29],"A’man Khalaqa"],
-  [21,[30,31,32,33],"Utlu Ma Uhiya"],[22,[34,35],"Wa Man Yaqnut"],[23,[36,37,38,39],"Wa Mali"],[24,[40,41],"Faman Azlam"],
-  [25,[42,43,44,45],"Ilayhi Yuraddu"],[26,[46,47,48,49,50,51],"Ha-Mim"],[27,[52,53,54,55,56,57],"Qala Fama Khatbukum"],
+  [1,[1,2]],[2,[2]],[3,[3]],[4,[4]],[5,[4]],[6,[5]],[7,[6]],[8,[7]],[9,[8]],[10,[9]],
+  [11,[10,11]],[12,[12]],[13,[13,14]],[14,[15,16]],[15,[17,18]],[16,[19,20]],[17,[21,22]],[18,[23,24,25]],
+  [19,[26,27],"Wa Qalalladhina"],[20,[28,29],"A’man Khalaqa"],[21,[30,31,32,33],"Utlu Ma Uhiya"],[22,[34,35],"Wa Manyaqnut"],
+  [23,[36,37,38,39],"Wa Mali"],[24,[40,41],"Faman Azlam"],[25,[42,43,44,45],"Ilayhi Yuraddu"],
+  [26,[46,47,48,49,50,51],"Ha-Mim"],[27,[52,53,54,55,56,57],"Qala Fama Khatbukum"],
   [28,[58,59,60,61,62,63,64,65,66],"Qad Sami’a"],[29,[67,68,69,70,71,72,73,74,75,76,77],"Tabarak"],
   [30,Array.from({length:37},(_,i)=>i+78),"‘Amma"],
 ];
@@ -374,7 +371,7 @@ export default function Home() {
 
   return <main>
     <section className="experience">
-      <header className="app-titlebar">
+      <header className={`app-titlebar ${onHome?"":"compact"}`}>
         <div className="app-brand"><span className="brand-moon">☾</span><div><p>ONE AYAH AT A TIME</p><h1>My Quran <span>Memorization Tracker</span></h1></div></div>
         <div className="child-switch" aria-label="Choose a reciter">
           <span>Whose journey?</span>
@@ -400,18 +397,22 @@ export default function Home() {
       </header>
 
       {/*
+        Shown on the home screen only. Inside a Juz these push the artwork —
+        the thing you actually came to use — a long way down the page.
+
         The bar counts books, where every surah counts once. That is not the
         same as how much of the Quran is memorized — Juz 30 alone is 37 of the
-        116 books — so it is labelled as books rather than as a bare percentage,
-        with the Juz count beside it.
+        116 books — so it is labelled as books, with the Juz count beside it.
       */}
-      <div className="journey-strip" aria-label="Overall memorization progress">
-        <div className="progress-copy"><div><span className="tiny">{reciter.toUpperCase()}’S JOURNEY</span><strong>{completedBooks} of {totalBooks} books colored</strong></div><span>{completeJuz} of 30 Juz memorized</span></div>
-        <div className="progress" title={`Any book you have started counts here, whatever its status. Every surah counts once, so short surahs move this as much as long ones.`} aria-label={`${completedBooks} of ${totalBooks} books colored. Every book you have started counts.`}><i style={{width:`${pct}%`}}/></div>
-        <div className="gentle-streak">☾ You practiced <strong>{practicedThisWeek} {practicedThisWeek===1?"day":"days"}</strong> this week</div>
-      </div>
+      {onHome && <>
+        <div className="journey-strip" aria-label="Overall memorization progress">
+          <div className="progress-copy"><div><span className="tiny">{reciter.toUpperCase()}’S JOURNEY</span><strong>{completedBooks} of {totalBooks} books started</strong></div><span>{completeJuz} of 30 Juz memorized</span></div>
+          <div className="progress" title={`Every book you have begun counts here, whatever its status. Each surah counts once, so short surahs move this as much as long ones.`} aria-label={`${completedBooks} of ${totalBooks} books started.`}><i style={{width:`${pct}%`}}/></div>
+          <div className="gentle-streak">☾ You practiced <strong>{practicedThisWeek} {practicedThisWeek===1?"day":"days"}</strong> this week</div>
+        </div>
 
-      <section className="achievement-card" aria-label={`${reciter}'s achievements`}><div><span className="tiny">A GROWING COLLECTION</span><h2>{reciter}’s achievements</h2></div><div className="badges">{badges.map(b=><div key={b.name} className={`badge ${b.earned?"earned":"locked"}`} title={b.earned?`${b.name} earned!`:b.note}><span>{b.icon}</span><b>{b.name}</b><small>{b.note}</small></div>)}</div></section>
+        <section className="achievement-card" aria-label={`${reciter}'s achievements`}><div><span className="tiny">A GROWING COLLECTION</span><h2>{reciter}’s achievements</h2></div><div className="badges">{badges.map(b=><div key={b.name} className={`badge ${b.earned?"earned":"locked"}`} title={b.earned?`${b.name} earned!`:b.note}><span>{b.icon}</span><b>{b.name}</b><small>{b.note}</small></div>)}</div></section>
+      </>}
 
       {onHome ? <>
         <MemorizingNow saved={saved} openJuz={openJuz} clearWork={clearWork}/>
@@ -424,7 +425,7 @@ export default function Home() {
               const memorized=juzMemorized(juz,saved.statuses||{});
               const learning=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="learning").length;
               return <button key={juz.n} className={`juz-tile ${memorized?"complete":done?"started":""}`} onClick={()=>openJuz(juz.n)}
-                aria-label={`Juz ${juz.n}${juz.label?`, ${juz.label}`:""} — ${done} of ${total} books colored${memorized?", all memorized":""}`}>
+                aria-label={`Juz ${juz.n}${juz.label?`, ${juz.label}`:""} — ${done} of ${total} books started${memorized?", all memorized":""}`}>
                 <span className="tile-top"><small>JUZ</small><strong>{juz.n}</strong></span>
                 {juz.label&&<em className="tile-label">{juz.label}</em>}
                 <span className="tile-meter" aria-hidden="true"><i style={{width:`${done/total*100}%`}}/></span>
@@ -519,7 +520,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateWork,clearWork,openS
         const inHeart=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="memorized").length;
         const revising=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="practice").length;
         const summary=[
-          `${colored} of ${juz.surahs.length} books colored`,
+          `${colored} of ${juz.surahs.length} books started`,
           learning.length?`learning ${learning.slice(0,2).join(", ")}${learning.length>2?` +${learning.length-2}`:""}`:null,
           revising?`${revising} in muraja’ah`:null,
           inHeart?`${inHeart} in my heart`:null,
