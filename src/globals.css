@@ -245,3 +245,16 @@
    2rem with a tall line box, which is where the height was going. */
 .tracker-top h2{font-size:1.35rem !important;line-height:1.25 !important}
 .memorizing-now .tracker-top h2,.juz-overview .tracker-top h2{font-size:1.15rem !important}
+
+/* ---- Khatm al-Qur'an: the whole-Quran certificate ------------------------ */
+/* Only appears once all 30 Juz are memorized, so it can afford to be loud. */
+.khatm-link{margin-top:9px;width:100%;border:2px solid #e6bc47;border-radius:99px;padding:9px 14px;
+  background:linear-gradient(90deg,#7b50bb,#4c2588);color:#fff8ed;font-weight:900;font-size:.78rem;
+  cursor:pointer;box-shadow:0 0 22px #ffc64b55}
+.khatm-link:hover{box-shadow:0 0 30px #ffc64b99}
+.certificate-screen.khatm .certificate{border-color:#c99a2e}
+.certificate-screen.khatm .certificate h2{font-size:2.6rem;color:#8b3d83;letter-spacing:.01em}
+.cert-honorific{margin:10px 0 0;font-size:.72rem;font-weight:800;color:#6c5a86}
+.cert-honorific button{margin-left:6px;padding:4px 12px;border:2px solid #cbb4dc;border-radius:99px;
+  background:#fff;color:#4c2588;font-weight:900;font-size:.72rem;cursor:pointer}
+.cert-honorific button.selected{border-color:#e5b83c;background:#fff3d2}

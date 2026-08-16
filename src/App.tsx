@@ -110,6 +110,9 @@ const journeyOrder:RevisionStatus[] = ["learning","practice","memorized"];
 const juzMemorized = (juz:Juz,statuses:Record<string,RevisionStatus>) =>
   juz.surahs.every(n=>statuses[`${juz.n}-${n}`]==="memorized");
 
+/** Most Juz hold a single surah, so "0 of 1 books" was on screen 10 times. */
+const bookWord = (total:number) => total===1?"book":"books";
+
 function BlankBookIcon() {
   return <span className="blank-book" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><rect x="15" y="8" width="34" height="48" rx="7" stroke="#bda2d8" strokeWidth="3" strokeDasharray="5 5"/><circle cx="32" cy="41" r="8.5" stroke="#cdb6de" strokeWidth="2.5"/><path d="M25 21h14" stroke="#d8c6e5" strokeWidth="3" strokeLinecap="round"/><path d="M27 28h10" stroke="#e0d2ea" strokeWidth="3" strokeLinecap="round"/></svg></span>;
 }
@@ -126,8 +129,14 @@ function JourneyIcon({status,className="",style}:{status:RevisionStatus;classNam
  * `workingOn` is the old per-Juz shape. It is read once and migrated, then left
  * alone so an older save is never lost.
  */
-type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; practiceDays:string[] };
-const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, practiceDays:[] };
+/**
+ * `dates` is keyed by Juz number, plus one extra key — "khatm" — for the day
+ * the whole Quran was finished. `honorific` is only used on that certificate.
+ */
+type Honorific = "Hafizah" | "Hafiz";
+type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; practiceDays:string[]; honorific?:Honorific };
+const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, practiceDays:[], honorific:"Hafizah" };
+const KHATM_KEY="khatm";
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 
 /**
@@ -177,6 +186,7 @@ function normalize(raw:unknown,name:string):Saved {
     workingOn:partial.workingOn??{},
     statuses:partial.statuses??{},
     practiceDays:partial.practiceDays??[],
+    honorific:partial.honorific==="Hafiz"?"Hafiz":"Hafizah",
   };
 }
 
@@ -268,8 +278,10 @@ export default function Home() {
   const onHome = activeGroup===null;
   const [color,setColor] = useState(colors[0]);
   const [statusBook,setStatusBook] = useState<{key:string;name:string;juz:number}|null>(null);
-  const [celebrating,setCelebrating] = useState<number|null>(null);
-  const [certificate,setCertificate] = useState<number|null>(null);
+  // A celebration and a certificate are either for one Juz (its number) or for
+  // finishing the whole Quran ("khatm").
+  const [celebrating,setCelebrating] = useState<number|"khatm"|null>(null);
+  const [certificate,setCertificate] = useState<number|"khatm"|null>(null);
   const [nextUp,setNextUp] = useState<{juz:number;name:string}|null>(null);
 
   // Progress is kept in this browser's own storage. There is no server: the
@@ -335,7 +347,19 @@ export default function Home() {
     {icon:"🏮",name:"Guiding Lantern",earned:practicedThisWeek>=3,note:"Practice 3 days in one week"},
     {icon:"✧",name:"Review Hero",earned:reviewedCount>=5,note:"Choose 5 books for muraja’ah"},
     {icon:"🕌",name:"Quran Garden",earned:completeJuz>=15,note:"Complete 15 Juz"},
+    // The last badge on the shelf: the whole Quran, all 30 Juz.
+    {icon:"📖",name:"Khatm al-Qur’an",earned:completeJuz>=30,note:"Memorize all 30 Juz"},
   ];
+  const khatmDone = completeJuz>=30;
+  /**
+   * The day the whole Quran was finished. Saves made before this certificate
+   * existed have no "khatm" date, so the last Juz date stands in for it.
+   */
+  const khatmDate = saved.dates[KHATM_KEY]
+    || juzs.map(j=>saved.dates[j.n]).filter(Boolean).sort().pop()
+    || localDay();
+  const honorific = saved.honorific ?? "Hafizah";
+  const setHonorific = (value:Honorific) => setSaved(s=>({...s,honorific:value}));
   const currentRange=pageGroups[activeGroup??0];
   const currentJuzs=juzs.filter(j=>j.n>=currentRange[0]&&j.n<=currentRange[1]);
   const rangeLabel=currentRange[0]===currentRange[1]?`Juz ${currentRange[0]}`:`Juz ${currentRange[0]}–${currentRange[1]}`;
@@ -376,18 +400,22 @@ export default function Home() {
     const nextStatuses={...saved.statuses,[key]:status};
     // A Juz is finished when its last surah reaches "It's in my heart".
     const justFinishedJuz=!!whole&&juzMemorized(whole,nextStatuses)&&!saved.dates[juz];
+    // Finishing the last Juz finishes the Quran. That gets its own moment.
+    const justFinishedQuran=justFinishedJuz&&juzs.every(j=>juzMemorized(j,nextStatuses))&&!saved.dates[KHATM_KEY];
 
     setSaved(s=>{
       const next:Saved={...s,statuses:{...s.statuses,[key]:status},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
       if(justFinishedJuz) next.dates={...s.dates,[juz]:localDay()};
+      if(justFinishedQuran) next.dates={...next.dates,[KHATM_KEY]:localDay()};
       return next;
     });
     setStatusBook(null);
-    if(justFinishedJuz) setTimeout(()=>setCelebrating(juz),160);
+    if(justFinishedQuran) setTimeout(()=>setCelebrating(KHATM_KEY),160);
+    else if(justFinishedJuz) setTimeout(()=>setCelebrating(juz),160);
     // Finishing one surah is a good moment to ask what comes next in this Juz.
     else if(status==="memorized") setTimeout(()=>setNextUp({juz,name}),140);
   };
-  const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};delete colored[statusBook.key];delete statuses[statusBook.key];delete dates[statusBook.juz];return {...s,colored,statuses,dates}});setStatusBook(null)};
+  const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};delete colored[statusBook.key];delete statuses[statusBook.key];delete dates[statusBook.juz];delete dates[KHATM_KEY];return {...s,colored,statuses,dates}});setStatusBook(null)};
   const update = (field:"name"|"dates"|"favorites", key:string, value:string) => setSaved(s=> field==="name" ? {...s,name:value} : {...s,[field]:{...s[field],[key]:value}});
   const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value}}));
   /** Marking a book as being learned is how a family says "this is what we're on". */
@@ -433,6 +461,8 @@ export default function Home() {
           <div className="progress-copy"><div><span className="tiny">{reciter.toUpperCase()}’S JOURNEY</span><strong>{completedBooks} of {totalBooks} books started</strong></div><span>{completeJuz} of 30 Juz memorized</span></div>
           <div className="progress" title={`Every book you have begun counts here, whatever its status. Each surah counts once, so short surahs move this as much as long ones.`} aria-label={`${completedBooks} of ${totalBooks} books started.`}><i style={{width:`${pct}%`}}/></div>
           <div className="gentle-streak">☾ You practiced <strong>{practicedThisWeek} {practicedThisWeek===1?"day":"days"}</strong> this week</div>
+          {/* Once the whole Quran is memorized the certificate stays one tap away. */}
+          {khatmDone&&<button type="button" className="khatm-link" onClick={()=>setCertificate(KHATM_KEY)}>📖 Khatm al-Qur’an — view {reciter}’s certificate</button>}
         </div>
 
         <section className="achievement-card" aria-label={`${reciter}'s achievements`}><div><span className="tiny">A GROWING COLLECTION</span><h2>{reciter}’s achievements</h2></div><div className="badges">{badges.map(b=><div key={b.name} className={`badge ${b.earned?"earned":"locked"}`} title={b.earned?`${b.name} earned!`:b.note}><span>{b.icon}</span><b>{b.name}</b><small>{b.note}</small></div>)}</div></section>
@@ -449,11 +479,11 @@ export default function Home() {
               const memorized=juzMemorized(juz,saved.statuses||{});
               const learning=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="learning").length;
               return <button key={juz.n} className={`juz-tile ${memorized?"complete":done?"started":""}`} onClick={()=>openJuz(juz.n)}
-                aria-label={`Juz ${juz.n}${juz.label?`, ${juz.label}`:""} — ${done} of ${total} books started${memorized?", all memorized":""}`}>
+                aria-label={`Juz ${juz.n}${juz.label?`, ${juz.label}`:""} — ${done} of ${total} ${bookWord(total)} started${memorized?", all memorized":""}`}>
                 <span className="tile-top"><small>JUZ</small><strong>{juz.n}</strong></span>
                 {juz.label&&<em className="tile-label">{juz.label}</em>}
                 <span className="tile-meter" aria-hidden="true"><i style={{width:`${done/total*100}%`}}/></span>
-                <span className="tile-count">{memorized?"✓ Memorized":`${done} of ${total} books`}</span>
+                <span className="tile-count">{memorized?"✓ Memorized":`${done} of ${total} ${bookWord(total)}`}</span>
                 {learning>0&&<span className="tile-working"><JourneyIcon status="learning"/>{learning} learning</span>}
               </button>;
             })}
@@ -477,9 +507,14 @@ export default function Home() {
 
     {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{startLearning(`${juz.n}-${n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}<button className="unmark" onClick={()=>setNextUp(null)}>Not right now</button></section></div>})()}
 
-    {celebrating&&<div className="celebration" role="dialog" aria-modal="true"><div className="confetti" aria-hidden="true">{Array.from({length:28},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div><div className="celebrate-card"><img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/><p className="eyebrow">A BEAUTIFUL MILESTONE</p><h2>MashaAllah, {reciter}!</h2><p>You completed Juz {celebrating}. May every ayah stay bright in your heart.</p><div><button onClick={()=>{setCertificate(celebrating);setCelebrating(null)}}>See my certificate</button><button className="quiet" onClick={()=>setCelebrating(null)}>Keep exploring</button></div></div></div>}
+    {celebrating&&<div className="celebration" role="dialog" aria-modal="true"><div className="confetti" aria-hidden="true">{Array.from({length:28},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div><div className="celebrate-card"><img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/><p className="eyebrow">{celebrating===KHATM_KEY?"THE WHOLE QURAN":"A BEAUTIFUL MILESTONE"}</p><h2>MashaAllah, {reciter}!</h2><p>{celebrating===KHATM_KEY?`You have memorized all 30 Juz — the whole Quran. May it stay bright in your heart for the rest of your life.`:`You completed Juz ${celebrating}. May every ayah stay bright in your heart.`}</p><div><button onClick={()=>{setCertificate(celebrating);setCelebrating(null)}}>See my certificate</button><button className="quiet" onClick={()=>setCelebrating(null)}>Keep exploring</button></div></div></div>}
 
-    {certificate&&<div className="certificate-screen" role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>MashaAllah!</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>for completing</span><h3>Juz {certificate}</h3><p className="cert-date">Completed {new Date(`${saved.dates[certificate]}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"})}</p><div className="cert-dua">May Allah fill your heart with the light of the Quran.</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>}
+    {certificate&&(()=>{
+      const khatm=certificate===KHATM_KEY;
+      const day=khatm?khatmDate:saved.dates[certificate];
+      const shown=new Date(`${day}T12:00:00`).toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"});
+      return <div className={`certificate-screen ${khatm?"khatm":""}`} role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>{khatm?"Khatm al-Qur’an":"MashaAllah!"}</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>{khatm?"who has memorized all 30 Juz and":"for completing"}</span><h3>{khatm?`has become a ${honorific}`:`Juz ${certificate}`}</h3><p className="cert-date">Completed {shown}</p>{khatm&&<p className="cert-honorific no-print">Show this certificate as{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={honorific===option?"selected":undefined} aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}</p>}<div className="cert-dua">{khatm?"May Allah make the Quran the light of your heart and your companion always.":"May Allah fill your heart with the light of the Quran."}</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>;
+    })()}
 
     <footer><span>☾</span><p>May every page bring your heart closer to the Quran.</p><span>♥</span></footer>
   </main>
@@ -509,7 +544,7 @@ function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
   return <section className="memorizing-now" aria-label="Currently memorizing">
     <div className="tracker-top"><h2>Currently memorizing</h2></div>
     {items.length===0
-      ? <p className="memorizing-empty"><JourneyIcon status="learning"/><span>Nothing yet. Color a book in any Juz and it will appear here while you learn it.</span></p>
+      ? <p className="memorizing-empty"><JourneyIcon status="learning"/><span>Nothing yet. Select a book in any Juz and it will appear here while you learn it.</span></p>
       : <div className="memorizing-list">{items.map(item=>
           <button className="memorizing-chip" key={item.key} onClick={()=>openJuz(item.juz)}
             title={`Open Juz ${item.juz}`}>
@@ -539,7 +574,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
         const inHeart=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="memorized").length;
         const revising=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="practice").length;
         const summary=[
-          `${colored} of ${juz.surahs.length} books started`,
+          `${colored} of ${juz.surahs.length} ${bookWord(juz.surahs.length)} started`,
           learning.length?`learning ${learning.slice(0,2).join(", ")}${learning.length>2?` +${learning.length-2}`:""}`:null,
           revising?`${revising} in muraja’ah`:null,
           inHeart?`${inHeart} in my heart`:null,
