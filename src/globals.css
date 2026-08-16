@@ -78,3 +78,51 @@
 .remove-confirm{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;font-size:.7rem;font-weight:700;color:#6b4a9c;margin:0;max-width:18rem;text-align:center}
 .remove-confirm button{border:0;border-radius:99px;padding:5px 12px;font-weight:800;font-size:.7rem;cursor:pointer;background:#e7dcf2;color:#4f2f7d}
 .remove-confirm button.danger{background:#c2456f;color:#fff}
+
+/* ---- Home screen: all 30 Juz, and what is being memorized right now ---- */
+.memorizing-now,.juz-overview{margin:22px 0 0}
+.memorizing-empty{display:flex;align-items:center;gap:10px;margin:0;padding:16px 18px;border-radius:18px;background:#f6f1fb;color:#6b4a9c;font-weight:700;font-size:.86rem;line-height:1.45}
+.memorizing-empty .journey-icon{width:30px;height:30px;flex:0 0 auto}
+.memorizing-list{display:grid;gap:10px}
+.memorizing-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:16px;background:linear-gradient(135deg,#fdf7ee,#f7eefb);border:1.5px solid #e6d6f0}
+.memorizing-item .journey-icon{width:34px;height:34px;flex:0 0 auto}
+.memorizing-open{flex:1;display:grid;gap:2px;text-align:left;border:0;background:transparent;cursor:pointer;padding:0}
+.memorizing-open b{font-size:1rem;color:#41246b;font-weight:900}
+.memorizing-open small{font-size:.72rem;color:#836aa4;font-weight:700}
+.memorizing-open:hover b{text-decoration:underline;text-underline-offset:3px}
+
+.juz-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+.juz-tile{position:relative;display:grid;gap:5px;align-content:start;padding:12px 11px;border-radius:16px;cursor:pointer;text-align:left;
+  border:1.5px solid #382a63;background:linear-gradient(160deg,#241a4d,#1a1440);color:#efe6ff;transition:transform .12s ease,border-color .12s ease}
+.juz-tile:hover{transform:translateY(-2px);border-color:#9c7ad6}
+.juz-tile .tile-top{display:flex;align-items:baseline;gap:5px}
+.juz-tile .tile-top small{font-size:.55rem;letter-spacing:.14em;color:#c3a7e8;font-weight:800}
+.juz-tile .tile-top strong{font-size:1.35rem;font-weight:900;line-height:1}
+.juz-tile .tile-label{font-style:normal;font-size:.66rem;color:#f3d979;font-weight:800;letter-spacing:.02em}
+.juz-tile .tile-meter{display:block;height:5px;border-radius:99px;background:#3a2c68;overflow:hidden;margin-top:3px}
+.juz-tile .tile-meter i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#e05287,#f2c94c)}
+.juz-tile .tile-count{font-size:.68rem;font-weight:800;color:#bda7e0}
+.juz-tile .tile-working{display:flex;align-items:center;gap:5px;font-size:.64rem;font-weight:800;color:#f6d9a8;line-height:1.2}
+.juz-tile .tile-working .journey-icon{width:17px;height:17px;flex:0 0 auto}
+.juz-tile.started{border-color:#7d5bd1}
+.juz-tile.complete{border-color:#3f9e77;background:linear-gradient(160deg,#1d4d3d,#143a2e)}
+.juz-tile.complete .tile-count{color:#9fe3c2}
+
+.back-home{border:1.5px solid #6f57a8 !important;background:transparent !important;color:#e4d6f7 !important;font-weight:800;border-radius:14px;padding:0 14px !important;cursor:pointer;font-size:.78rem;display:grid !important;place-content:center}
+.back-home:hover{background:#2e2258 !important;border-color:#a382e0 !important}
+
+/* ---- Collapsible detail rows under each artwork page ---- */
+.juz-note-row.collapsed{padding:0 !important;gap:0 !important}
+.row-toggle{width:100%;display:flex;align-items:center;gap:12px;padding:13px 16px;border:0;background:transparent;cursor:pointer;text-align:left;border-radius:16px}
+.row-toggle:hover{background:#f4edfa}
+.row-toggle b{font-size:.95rem;color:#41246b;font-weight:900;flex:0 0 auto}
+.row-summary{flex:1;font-size:.74rem;font-weight:700;color:#8a72ab}
+.row-chevron{font-size:.8rem;color:#9a80bd;flex:0 0 auto}
+.juz-note-row.expanded .row-toggle{border-bottom:1.5px solid #ece1f5;border-radius:16px 16px 0 0}
+.row-body{display:grid;gap:14px;padding:14px 16px 16px}
+
+/* The home screen exists to make the page shorter, so its section headers stay
+   compact rather than reusing the full-size artwork-page heading. */
+.memorizing-now .tracker-top,.juz-overview .tracker-top{padding:12px 16px;margin-bottom:10px}
+.memorizing-now .tracker-top h2,.juz-overview .tracker-top h2{font-size:1.15rem;margin:2px 0 0}
+.memorizing-now .tracker-top .eyebrow,.juz-overview .tracker-top .eyebrow{margin:0}
