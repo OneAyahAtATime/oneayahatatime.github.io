@@ -25,7 +25,24 @@ const rawJuz: [number, number[], string?][] = [
   [28,[58,59,60,61,62,63,64,65,66],"Qad Sami’a"],[29,[67,68,69,70,71,72,73,74,75,76,77],"Tabarak"],
   [30,Array.from({length:37},(_,i)=>i+78),"‘Amma"],
 ];
-const juzs: Juz[] = rawJuz.map(([n,surahs,label])=>({n,surahs,label}));
+/**
+ * Every tile carries the same yellow line the artwork prints on that page.
+ *
+ * Juz 19-30 print a Juz name on the banner, so that name is used. Juz 1-18
+ * print no Juz name — the page shows the surahs on the shelf instead — so the
+ * tile lists those surahs, in the artwork's own spelling. Where a Juz carries
+ * on a surah that began earlier, the page says "Al-Baqarah continues"; the
+ * tile says the same.
+ */
+const juzs: Juz[] = (() => {
+  const started = new Set<number>();
+  return rawJuz.map(([n,inJuz,label])=>{
+    const carriedOver = inJuz.length===1 && started.has(inJuz[0]);
+    for(const s of inJuz) started.add(s);
+    const named = inJuz.map(s=>surahs[s-1].en);
+    return { n, surahs:inJuz, label: label ?? (carriedOver?`${named[0]} continues`:named.join(" · ")) };
+  });
+})();
 const pageGroups = [[1,6],[7,13],[14,18],[19,22],[23,25],[26,27],[28,29],[30,30]] as const;
 const colorOptions = [
   {value:"#e05287",label:"Rose"},{value:"#f06f61",label:"Coral"},{value:"#ed8f3d",label:"Orange"},{value:"#f2c94c",label:"Golden yellow"},{value:"#65b96e",label:"Leaf green"},{value:"#2bb3a3",label:"Aqua"},{value:"#43b8d1",label:"Sky blue"},{value:"#4f8bd8",label:"Blue"},{value:"#7d5bd1",label:"Purple"},{value:"#b765c4",label:"Orchid"},
