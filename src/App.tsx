@@ -439,6 +439,18 @@ export default function Home() {
                   placeholder={defaultReciterName(activeIndex+1)}/>
                 <button type="submit">Done</button>
                 <small>A nickname is perfect — there’s no need for a full name.</small>
+                {/*
+                  Nothing about a reciter is guessed. The only word in the whole
+                  app that changes with who is reciting is the one on the Khatm
+                  certificate, so it is asked for once, here, beside the name.
+                */}
+                <fieldset className="honorific-choice">
+                  <legend>On the Khatm al-Qur’an certificate, call {reciter}</legend>
+                  {(["Hafizah","Hafiz"] as Honorific[]).map(option=>
+                    <button key={option} type="button" className={honorific===option?"selected":undefined}
+                      aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}
+                  <small>Hafizah for a girl, Hafiz for a boy.</small>
+                </fieldset>
                 {reciters.length>1&&(confirmRemove
                   ? <p className="remove-confirm">Remove {reciter} and their books? <button type="button" className="danger" onClick={removeReciter}>Yes, remove</button> <button type="button" onClick={()=>setConfirmRemove(false)}>Keep</button></p>
                   : <button type="button" className="remove-reciter" onClick={()=>setConfirmRemove(true)}>Remove this reciter</button>)}

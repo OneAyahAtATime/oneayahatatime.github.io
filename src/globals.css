@@ -258,3 +258,12 @@
 .cert-honorific button{margin-left:6px;padding:4px 12px;border:2px solid #cbb4dc;border-radius:99px;
   background:#fff;color:#4c2588;font-weight:900;font-size:.72rem;cursor:pointer}
 .cert-honorific button.selected{border-color:#e5b83c;background:#fff3d2}
+
+/* The one word in the app that depends on who is reciting, asked for beside
+   the nickname rather than guessed. */
+.honorific-choice{grid-column:1/-1;margin:6px 0 0;padding:0;border:0}
+.honorific-choice legend{padding:0;font-size:.68rem;font-weight:800;color:#d9c8f5}
+.honorific-choice button{margin:5px 6px 0 0;padding:5px 13px;border:2px solid #6f56a8;border-radius:99px;
+  background:#2b1c56;color:#efe4ff;font-weight:900;font-size:.72rem;cursor:pointer}
+.honorific-choice button.selected{border-color:#f2c94c;background:#4c2588;color:#fff7dc}
+.honorific-choice small{display:block;margin-top:4px;font-size:.62rem;color:#b7a4d8}
