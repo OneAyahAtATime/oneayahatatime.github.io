@@ -305,3 +305,21 @@
 
 /* Anyone who has asked their device for less motion gets the card, not the fall. */
 @media(prefers-reduced-motion:reduce){.confetti{display:none}}
+
+/* ---- The reciter panel sits on a dark header ------------------------------
+   `.app-titlebar .child-switch button` sets a near-white color at a
+   specificity these controls could not beat, so anything that set its own
+   dark color lost and rendered white-on-white. Everything in the panel is
+   pinned here, above that rule, rather than one control at a time. */
+.app-titlebar .child-switch .learner-rename label{color:#d9c8f5}
+.app-titlebar .child-switch .remove-reciter{color:#f0b6cf}
+.app-titlebar .child-switch .remove-reciter:hover{color:#ffd9e6}
+.app-titlebar .child-switch .remove-confirm{color:#efe4ff}
+.app-titlebar .child-switch .remove-confirm button{background:#fff8ed;color:#4c2588;border:2px solid #eacb62}
+.app-titlebar .child-switch .remove-confirm button.danger{background:#c2456f;color:#fff;border-color:#ff9ebb}
+.app-titlebar .child-switch .learner-rename>button[type=submit]{background:#fff8ed;color:#4c2588;border:2px solid #eacb62;border-radius:99px;padding:7px 18px;font-weight:900;cursor:pointer}
+.app-titlebar .child-switch .honorific-choice button{color:#efe4ff}
+.app-titlebar .child-switch .honorific-choice button.selected{color:#fff7dc}
+/* "+ Add reciter" was dark purple on the dark header — 2.5:1, barely visible. */
+.app-titlebar .child-switch .add-reciter{color:#e4d3ff !important;border-color:#bd9be0 !important}
+.app-titlebar .child-switch .add-reciter:hover{background:#fff8ed !important;color:#4c2588 !important;border-color:#eacb62 !important}
