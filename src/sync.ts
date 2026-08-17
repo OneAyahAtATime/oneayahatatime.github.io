@@ -20,6 +20,7 @@
  */
 
 import type { Access } from "./access";
+import { sha256 } from "./hash";
 
 const SB_URL = "https://nkkckcnclqwpvvwujedg.supabase.co";
 /* Publishable by design — it is in every visitor's browser and grants nothing on
@@ -52,34 +53,20 @@ export type RemoteReciter = {
 
 const normKey = (s: string) => String(s || "").trim().toLowerCase();
 
-/** sha256, hex, using the browser's own crypto — no library, no polyfill. */
-async function sha256(text: string): Promise<string> {
-  const bytes = new TextEncoder().encode(text);
-  const digest = await crypto.subtle.digest("SHA-256", bytes);
-  return Array.from(new Uint8Array(digest))
-    .map(b => b.toString(16).padStart(2, "0"))
-    .join("");
-}
-
-const fingerprints = new Map<string, string>();
-
 /**
  * The family's fingerprint, or null when there is nothing to sync to — which is
- * every moment of the free week, and every moment on a device whose browser has
- * no crypto (very old ones), where the app simply carries on storing locally.
+ * every moment of the free week.
+ *
+ * A code handed out by hand syncs too, and its own stored fingerprint stands in
+ * for the key. That is not a weaker identifier: it is already a 64-character
+ * one-way hash, and scrambling it again with a different salt keeps the two
+ * unrelatable.
  */
-export async function familyFingerprint(access: Access): Promise<string | null> {
+export function familyFingerprint(access: Access): string | null {
   const key = normKey(access?.licence?.key || "");
-  if (!key) return null;
-  const cached = fingerprints.get(key);
-  if (cached) return cached;
-  try {
-    const fp = await sha256(FAMILY_SALT + key);
-    fingerprints.set(key, fp);
-    return fp;
-  } catch {
-    return null;                       // no crypto.subtle: stay local, stay working
-  }
+  if (key) return sha256(FAMILY_SALT + key);
+  if (access?.code) return sha256(FAMILY_SALT + access.code);
+  return null;
 }
 
 function rpc<T>(fn: string, body: unknown): Promise<T> {

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type Access, type Licence, accessState, activateKey, buyHref, hasAccess, looksLikeKey,
+  type Access, type Licence, accessState, activateKey, buyHref, codeFingerprint, codeOk,
+  deactivateKey, hasAccess, looksLikeKey, ownsAnotherApp,
   readAccess, recheck, writeAccess, trialLeft,
-  PRICE_LINE, TRIAL_DAYS, UPGRADE_LINE,
+  PRICE_LINE, SUPPORT_EMAIL, TRIAL_DAYS, UPGRADE_LINE, UPGRADE_PRICE,
 } from "./access";
 import {
   type RemoteReciter, type SyncState,
@@ -359,10 +360,66 @@ function forgetProgress(id:string):void {
  *                 before anything else, because the usual cause is a card that
  *                 quietly failed rather than a decision to leave.
  */
-function Gate({ state, onStartTrial, onUnlock }:{
+/**
+ * Proving you already own Spelling Quest or Muslim Kids Checklist.
+ *
+ * The $25 price is real and permanent, not a first-year discount, so it is worth
+ * a moment's checking. Rather than take somebody's word for it, the app asks for
+ * the key from that other purchase and validates it with Lemon Squeezy.
+ *
+ * Two things this deliberately does *not* do. It does not make anybody type a
+ * key before they can see that a cheaper price exists — the price is named
+ * first, and only opening it asks for proof. And it never answers "no" because
+ * the network failed: an offline answer offers to email instead, because a real
+ * customer told "you don't own this" would rightly be furious.
+ */
+function UpgradeOffer() {
+  const [open,setOpen] = useState(false);
+  const [typed,setTyped] = useState("");
+  const [busy,setBusy] = useState(false);
+  const [state,setState] = useState<"asking"|"yes"|"no"|"offline">("asking");
+  const [product,setProduct] = useState("");
+
+  const check = async () => {
+    const value = typed.trim();
+    if(!looksLikeKey(value)) { setState("no"); return; }
+    setBusy(true);
+    const result = await ownsAnotherApp(value);
+    setBusy(false);
+    setProduct(result.product ?? "");
+    setState(result.offline ? "offline" : result.owns ? "yes" : "no");
+  };
+
+  if(!open) return <small className="gate-upgrade">
+    {UPGRADE_LINE} — <button type="button" className="linkish" onClick={()=>setOpen(true)}>get that price</button>
+  </small>;
+
+  if(state==="yes") return <div className="gate-upgrade open">
+    <p className="upgrade-yes">Found it{product?` — ${product}`:""}. Thank you for coming back.</p>
+    <a className="gate-primary" href={buyHref(true)}>Continue — {UPGRADE_PRICE}</a>
+  </div>;
+
+  return <div className="gate-upgrade open">
+    <label htmlFor="other-key">Paste your key from Spelling Quest or Muslim Kids Checklist</label>
+    <input id="other-key" value={typed} placeholder="Paste that key" autoComplete="off"
+      onChange={e=>{ setTyped(e.target.value); if(state!=="asking") setState("asking") }}
+      onKeyDown={e=>{ if(e.key==="Enter") check() }}/>
+    <button className="gate-secondary" disabled={busy} onClick={check}>{busy?"Checking…":"Check"}</button>
+    <small>It is only checked, never saved, and it costs that key nothing.</small>
+    {state==="no"&&<p className="gate-problem" role="alert">We couldn’t match that key. If you own one
+      of them and this looks wrong, <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("One Ayah — upgrade")}`}>write
+      to us</a> and we’ll sort it out. <em>Muslim Kids Checklist isn’t on sale yet, so write to us for that one.</em></p>}
+    {state==="offline"&&<p className="gate-problem" role="alert">We couldn’t reach the shop just now —
+      that’s us, not you. Try again in a moment, or <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("One Ayah — upgrade")}`}>write
+      to us</a> and we’ll send you the link.</p>}
+  </div>;
+}
+
+function Gate({ state, onStartTrial, onUnlock, onCode }:{
   state: "new"|"trial-over"|"ended";
   onStartTrial: () => void;
   onUnlock: (licence: Licence) => void;
+  onCode: (fingerprint: string) => void;
 }) {
   const [typed,setTyped] = useState("");
   const [busy,setBusy] = useState(false);
@@ -370,7 +427,10 @@ function Gate({ state, onStartTrial, onUnlock }:{
 
   const unlock = async () => {
     const value = typed.trim();
-    if(!looksLikeKey(value)) { setProblem("That doesn’t look like a key — check the email from the shop."); return; }
+    // A code we handed out by hand. Checked first, and entirely on the device —
+    // there is nothing behind it to ask, so it works with no connection at all.
+    if(codeOk(value)) { onCode(codeFingerprint(value)); return; }
+    if(!looksLikeKey(value)) { setProblem("That doesn’t look like a key or a code — check the email you were sent."); return; }
     setBusy(true); setProblem("");
     try {
       const res = await activateKey(value);
@@ -413,8 +473,8 @@ function Gate({ state, onStartTrial, onUnlock }:{
       </div>}
 
       <div className="gate-key">
-        <label htmlFor="licence-key">{state==="ended"?"Paste a new key":"Already have a key?"}</label>
-        <input id="licence-key" value={typed} placeholder="Paste your key" autoComplete="off"
+        <label htmlFor="licence-key">{state==="ended"?"Paste a new key":"Already have a key or a code?"}</label>
+        <input id="licence-key" value={typed} placeholder="Paste your key or code" autoComplete="off"
           onChange={e=>setTyped(e.target.value)}
           onKeyDown={e=>{ if(e.key==="Enter") unlock() }}/>
         <button className={state==="new"?"gate-secondary":"gate-primary"} disabled={busy} onClick={unlock}>
@@ -425,7 +485,7 @@ function Gate({ state, onStartTrial, onUnlock }:{
 
       <div className="gate-buy">
         <a className="gate-primary" href={buyHref()}>{state==="ended"?"Start again":"Keep it for a year"} — {PRICE_LINE}</a>
-        <small>{UPGRADE_LINE} — <a href={buyHref(true)}>upgrade here</a></small>
+        <UpgradeOffer/>
         <small>12 months, renews on its own until you cancel. Cancel any time from the shop.</small>
       </div>
 
@@ -543,7 +603,7 @@ export default function Home() {
   };
 
   const syncNow = useCallback(async ()=>{
-    const fp = await familyFingerprint(access);
+    const fp = familyFingerprint(access);
     if(!fp) { setSyncLine("off"); return; }
     if(syncing.current) return;
     if(typeof navigator!=="undefined" && navigator.onLine===false) { setSyncLine("offline"); return; }
@@ -670,11 +730,10 @@ export default function Home() {
     const going=activeId;
     // Tell the family's other devices, so a reciter removed here doesn't come
     // back from a phone that still has them. The removal sticks on the server.
-    familyFingerprint(access).then(fp=>{
-      if(fp) pushReciter(fp,{ id:going, name:"", colored:{}, statuses:{}, statusAt:{}, dates:{},
-        favorites:{}, ayahs:{}, workingOn:{}, practiceDays:[], honorific:"Hafizah", removed:true })
-        .catch(()=>{ /* it will be sent again on the next sync */ });
-    });
+    const fp = familyFingerprint(access);
+    if(fp) pushReciter(fp,{ id:going, name:"", colored:{}, statuses:{}, statusAt:{}, dates:{},
+      favorites:{}, ayahs:{}, workingOn:{}, practiceDays:[], honorific:"Hafizah", removed:true })
+      .catch(()=>{ /* it will be sent again on the next sync */ });
     forgetProgress(activeId);
     commitReciters(remaining);
     setActiveId(remaining[Math.min(activeIndex,remaining.length-1)].id);
@@ -828,6 +887,31 @@ export default function Home() {
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
   const [restored,setRestored] = useState("");
+
+  /**
+   * Signing this device out.
+   *
+   * There was no way to do this at all, which mattered more than it looks: a
+   * mistyped key, a shared laptop, a device being handed on, or somebody simply
+   * wanting to move their subscription somewhere else all had no answer but the
+   * browser's developer tools.
+   *
+   * It clears the way in and nothing else. **Every book stays exactly where it
+   * is** — access and progress have always been stored separately, and this is
+   * the moment that separation earns its keep. Saying so on the button matters
+   * as much as the behaviour: nobody will press a button they think deletes a
+   * year of memorization.
+   */
+  const [signingOut,setSigningOut] = useState(false);
+  const signOut = () => {
+    const licence = access.licence;
+    // Hand the activation back if there is one. Best effort, and never waited
+    // for: the activation limit is unlimited, so this is only good manners.
+    if(licence?.key && licence.instance) deactivateKey(licence.key,licence.instance).catch(()=>{});
+    writeAccess({});
+    setAccess({});
+    setSigningOut(false);
+  };
   const importProgress = (file:File) => {
     const reader=new FileReader();
     reader.onload=()=>{
@@ -850,7 +934,8 @@ export default function Home() {
   if(!hasAccess(access)) return <Gate
     state={gateState==="ended"?"ended":gateState==="trial-over"?"trial-over":"new"}
     onStartTrial={()=>saveAccess({...access,trialStart:Date.now()})}
-    onUnlock={licence=>saveAccess({...access,licence})}/>;
+    onUnlock={licence=>saveAccess({...access,licence})}
+    onCode={code=>saveAccess({...access,code})}/>;
 
   return <main>
     <section className="experience">
@@ -1008,6 +1093,15 @@ export default function Home() {
             onChange={e=>{ const f=e.target.files?.[0]; if(f) importProgress(f); e.target.value="" }}/>
         </label>
         {restored&&<small role="status">{restored}</small>}
+      </div>
+      <div className="footer-signout">
+        {signingOut
+          ? <p className="signout-confirm">Sign this device out? <strong>Your books stay exactly where
+              they are</strong> — you can sign back in with the same key any time.{" "}
+              <button type="button" className="danger" onClick={signOut}>Yes, sign out</button>{" "}
+              <button type="button" onClick={()=>setSigningOut(false)}>Stay signed in</button></p>
+          : <button type="button" className="signout" onClick={()=>setSigningOut(true)}>
+              Sign out or use a different key</button>}
       </div>
       <small className="footer-note">{syncLine==="off"
         ? <>Your books are saved in this browser. Once you have a licence key they travel to your

@@ -376,6 +376,40 @@ footer .footer-dua{margin:0 0 10px}
 .footer-backup small{width:100%;color:#9ff0d2;font-size:.74rem}
 .footer-note{display:block;margin:10px auto 0;max-width:34rem;color:#a996cc;font-size:.72rem;line-height:1.5}
 
+/* Signing a device out. Quieter than the buttons above it, because it is rarely
+   the thing somebody came here to do — but never hidden, because when it *is*
+   the thing, not finding it is maddening. */
+.footer-signout{margin-top:14px}
+.footer-signout button.signout{border:0;background:none;color:#a996cc;font-family:inherit;
+  font-size:.72rem;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:6px}
+.footer-signout button.signout:hover{color:#ffe08a}
+.signout-confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;
+  margin:0 auto;max-width:38rem;color:#efe4ff;font-size:.76rem;line-height:1.6}
+.signout-confirm strong{color:#9ff0d2}
+.signout-confirm button{border:2px solid #8f74c8;border-radius:99px;padding:5px 14px;background:#1d1046;
+  color:#e8dcff;font-family:inherit;font-weight:800;font-size:.74rem;cursor:pointer}
+.signout-confirm button:hover{border-color:#eacb62;color:#fff8ed}
+.signout-confirm button.danger{border-color:#e08a8a;color:#ffd9d9}
+.signout-confirm button.danger:hover{background:#5a1c3a;border-color:#ffb4b4;color:#fff}
+
+/* Proving you already own one of the other apps, before the $25 price shows. */
+.gate-upgrade{display:block;margin-top:9px;color:#c9b6ea;font-size:.72rem}
+.gate-upgrade button.linkish{border:0;background:none;color:#ffe08a;font-family:inherit;
+  font-size:inherit;font-weight:800;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:0}
+.gate-upgrade button.linkish:hover{color:#fff8ed}
+.gate-upgrade.open{display:grid;gap:8px;justify-items:center;margin-top:12px;padding:14px;
+  border:2px solid #6a4aa8;border-radius:18px;background:#25134f}
+.gate-upgrade.open label{color:#f3d979;font-size:.72rem;font-weight:900;letter-spacing:.04em;
+  max-width:26rem;line-height:1.5}
+.gate-upgrade.open input{width:min(320px,90%);border:2px solid #8f74c8;border-radius:99px;
+  padding:9px 16px;background:#150a33;color:#fff8ed;font-family:inherit;font-size:.86rem;text-align:center}
+.gate-upgrade.open input:focus{outline:none;border-color:#eacb62}
+.gate-upgrade.open small{color:#a996cc;font-size:.7rem}
+.gate-upgrade .upgrade-yes{margin:0;color:#9ff0d2;font-size:.84rem;font-weight:800}
+.gate-upgrade .gate-problem{max-width:26rem}
+.gate-upgrade .gate-problem a{color:#ffe08a}
+.gate-upgrade .gate-problem em{display:block;margin-top:6px;color:#c9b6ea;font-style:normal;font-size:.7rem}
+
 /* ---- A quick look around ------------------------------------------------- */
 .tour{position:fixed;inset:0;z-index:1200}
 .tour-hole{position:fixed;border-radius:18px;box-shadow:0 0 0 9999px #050425d9,0 0 0 3px #f2c94c,

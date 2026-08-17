@@ -13,6 +13,8 @@
  * itself is only ever sent to Lemon Squeezy.
  */
 
+import { sha256 } from "./hash";
+
 export const TRIAL_DAYS = 7;
 export const RECHECK_DAYS = 7;
 
@@ -33,12 +35,56 @@ export const CHECKOUT_URL = "https://oneayahatatime.lemonsqueezy.com/checkout/bu
 export const UPGRADE_URL  = "https://oneayahatatime.lemonsqueezy.com/checkout/buy/24731e95-f176-4e06-98c4-a4217986f920";
 export const SUPPORT_EMAIL = "oneayahtime@gmail.com";
 export const PRICE_LINE = "$40 a year for the whole family";
-export const UPGRADE_LINE = "$25 if you already have Spelling Quest or Muslim Kids Checklist";
+export const UPGRADE_LINE = "$25 a year if you already have Spelling Quest or Muslim Kids Checklist";
+export const UPGRADE_PRICE = "$25 a year, for as long as you stay";
 
 /* Sister products. Muslim Kids Checklist has no public address yet — until it
    does, it is named in the copy without a link rather than linked wrongly. */
 export const SPELLING_QUEST_URL = "https://spellingquest.github.io";
 export const KIDS_CHECKLIST_URL = "";
+
+/* ---- codes handed out by hand ----------------------------------------------
+   Family, testers, a teacher, somebody who wrote in — people who should have the
+   app without buying it. A code unlocks everything a paid key does and is never
+   re-checked against anything, because there is nothing to check it against.
+
+   **Only the salted hashes are here.** The codes themselves live in one text
+   file outside the repository and are never committed, because this repository
+   is public and a code in it would be a free key for the entire internet. A hash
+   cannot be turned back into a code, and the codes are long and random enough
+   that guessing is not on the table either.
+
+   The device stores the *fingerprint* too, never the code — so an unlocked iPad
+   carries nothing anybody could reuse.
+
+   To add or retire a code: change this list and the private file together. */
+export const CODE_SALT = "OneAyah/v1/";
+const CODE_HASHES = [
+  "a3fc12fdcbe63b6c2ac0b1c3ed4e8a62c22a9ff7b9f8bb9fc85c4631f87d4c01",
+  "b5c8bcd0f7beaa11123c427c9bf9d1051ca7762911295b1bd77f9422d3d0091b",
+  "77132ccc14cf75e72829c2f6ee3b765ef3dd7b52c7ac600ded5c3206b18fbf1c",
+  "bfab47d7f23e9e7629dfe8ff4a4fdd5d151377b1eaaabe2d41aea38055c2cc03",
+  "4abf0c4364ab39165f73809a7d0e7ab9415673d7223c58a81b216a8ecec071bb",
+];
+
+export const normCode = (s: string) => String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+export const codeFingerprint = (s: string) => sha256(CODE_SALT + normCode(s));
+
+/** Takes either a code somebody typed or a fingerprint already on the device. */
+export const codeOk = (s: string) => {
+  const value = String(s || "");
+  return CODE_HASHES.includes(value) || CODE_HASHES.includes(codeFingerprint(value));
+};
+
+/* ---- proving you already own one of the other apps --------------------------
+   The $25 price is for people who already bought Spelling Quest or Muslim Kids
+   Checklist. Rather than trust that, the app asks for the key from that other
+   purchase and checks it with Lemon Squeezy before it will show the price.
+
+   Store ids, not product ids, so a second product in either shop still counts.
+   Muslim Kids Checklist has no shop yet; when it does, add its id here and the
+   check starts accepting its keys with no other change. */
+const OUR_OTHER_STORES: number[] = [451129];      // 451129 = Spelling Quest
 
 const LS_API = "https://api.lemonsqueezy.com/v1/licenses";
 
@@ -55,7 +101,8 @@ export type Licence = {
   /** typed in while offline — activate properly on the next run */
   pending?: boolean;
 };
-export type Access = { trialStart?: number; licence?: Licence };
+/** `code` holds the *fingerprint* of a code we handed out, never the code. */
+export type Access = { trialStart?: number; licence?: Licence; code?: string };
 
 /** new = never opened the door; ended = paid once, and the key has since died. */
 export type AccessState = "new" | "trial" | "trial-over" | "licensed" | "ended";
@@ -82,6 +129,9 @@ export function trialLeft(a: Access): number | null {
 }
 
 export function accessState(a: Access): AccessState {
+  // A code we handed out beats everything, and is never re-checked: there is no
+  // subscription behind it to expire, and nothing to phone home about.
+  if (a.code && codeOk(a.code)) return "licensed";
   if (a.licence?.key && !a.licence.dead) return "licensed";
   if (a.licence?.key && a.licence.dead) return "ended";
   const left = trialLeft(a);
@@ -97,7 +147,13 @@ export const hasAccess = (a: Access) => {
 export const looksLikeKey = (s: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || "").trim());
 
-type LsReply = { activated?: boolean; valid?: boolean; error?: string; instance?: { id?: string } };
+type LsReply = {
+  activated?: boolean; valid?: boolean; deactivated?: boolean; error?: string;
+  instance?: { id?: string };
+  /** Lemon Squeezy also returns the buyer's email here. It is never read, never
+   *  stored and never shown — only `store_id` is looked at. */
+  meta?: { store_id?: number; product_name?: string };
+};
 
 export function activateKey(key: string, deviceName = "One Ayah device"): Promise<LsReply> {
   return fetch(`${LS_API}/activate`, {
@@ -117,12 +173,45 @@ export function validateKey(key: string, instanceId: string | null): Promise<LsR
   }).then(r => r.json() as Promise<LsReply>);
 }
 
+/** Hand an activation back when somebody signs a device out. Best effort. */
+export function deactivateKey(key: string, instanceId: string): Promise<LsReply> {
+  return fetch(`${LS_API}/deactivate`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+    body: new URLSearchParams({ license_key: key.trim(), instance_id: instanceId }),
+  }).then(r => r.json() as Promise<LsReply>);
+}
+
+export type OwnerCheck = { owns: boolean; product?: string; offline?: boolean };
+
+/**
+ * Does this key belong to one of our other shops?
+ *
+ * Validating without an instance id only asks a question — it does not use up
+ * one of that key's activations, so checking costs the person nothing.
+ *
+ * A network failure answers `offline`, not `no`. Somebody who really does own
+ * Spelling Quest should never be told they don't because a request timed out;
+ * the screen offers to email instead.
+ */
+export async function ownsAnotherApp(key: string): Promise<OwnerCheck> {
+  try {
+    const res = await validateKey(key, null);
+    if (!res?.valid) return { owns: false };
+    const store = res.meta?.store_id;
+    return { owns: !!store && OUR_OTHER_STORES.includes(store), product: res.meta?.product_name };
+  } catch {
+    return { owns: false, offline: true };
+  }
+}
+
 /**
  * The quiet weekly re-check. Resolves to the access it wants saved, or null if
  * nothing should change — which is the answer for every failure that isn't a
  * definite "this key is finished".
  */
 export async function recheck(a: Access): Promise<Access | null> {
+  if (a.code && codeOk(a.code)) return null;      // nothing behind a code to check
   const licence = a.licence;
   if (!licence?.key || licence.dead) return null;
   if (Date.now() - (licence.checked || 0) < RECHECK_DAYS * 86400000) return null;
