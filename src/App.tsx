@@ -130,6 +130,14 @@ const juzMemorized = (juz:Juz,statuses:Record<string,RevisionStatus>) =>
 /** Most Juz hold a single surah, so "0 of 1 books" was on screen 10 times. */
 const bookWord = (total:number) => total===1?"book":"books";
 
+/** "19", "19 and 20", "19, 20 and 21" — never a bare comma list. */
+const listWords = (items:(string|number)[]) =>
+  items.length<2 ? String(items[0] ?? "")
+  : `${items.slice(0,-1).join(", ")} and ${items[items.length-1]}`;
+
+/** A celebration covers one Juz, several at once, or the whole Quran. */
+type Celebration = { khatm:boolean; juz:number[] };
+
 function BlankBookIcon() {
   return <span className="blank-book" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><rect x="15" y="8" width="34" height="48" rx="7" stroke="#bda2d8" strokeWidth="3" strokeDasharray="5 5"/><circle cx="32" cy="41" r="8.5" stroke="#cdb6de" strokeWidth="2.5"/><path d="M25 21h14" stroke="#d8c6e5" strokeWidth="3" strokeLinecap="round"/><path d="M27 28h10" stroke="#e0d2ea" strokeWidth="3" strokeLinecap="round"/></svg></span>;
 }
@@ -295,10 +303,15 @@ export default function Home() {
   const onHome = activeGroup===null;
   const [color,setColor] = useState(colors[0]);
   const [statusBook,setStatusBook] = useState<{key:string;name:string;juz:number}|null>(null);
-  // A celebration and a certificate are either for one Juz (its number) or for
-  // finishing the whole Quran ("khatm").
-  const [celebrating,setCelebrating] = useState<number|"khatm"|null>(null);
+  // A certificate is either for one Juz (its number) or for the whole Quran.
+  // A celebration can cover several Juz at once, since marking a page in one go
+  // can finish more than one.
+  const [celebrating,setCelebrating] = useState<Celebration|null>(null);
   const [certificate,setCertificate] = useState<number|"khatm"|null>(null);
+  // Marking several books at once. While this is on, tapping a book picks it
+  // rather than coloring it, and no per-book prompt interrupts.
+  const [bulk,setBulk] = useState(false);
+  const [picked,setPicked] = useState<string[]>([]);
   const [nextUp,setNextUp] = useState<{juz:number;name:string}|null>(null);
 
   // Progress is kept in this browser's own storage. There is no server: the
@@ -427,11 +440,39 @@ export default function Home() {
       return next;
     });
     setStatusBook(null);
-    if(justFinishedQuran) setTimeout(()=>setCelebrating(KHATM_KEY),160);
-    else if(justFinishedJuz) setTimeout(()=>setCelebrating(juz),160);
+    if(justFinishedQuran) setTimeout(()=>setCelebrating({khatm:true,juz:[juz]}),160);
+    else if(justFinishedJuz) setTimeout(()=>setCelebrating({khatm:false,juz:[juz]}),160);
     // Finishing one surah is a good moment to ask what comes next in this Juz.
     else if(status==="memorized") setTimeout(()=>setNextUp({juz,name}),140);
   };
+
+  /**
+   * One status for every picked book. A family with ten Juz already memorized
+   * should not have to tap each book twice and dismiss a certificate in
+   * between, so nothing interrupts here: the whole change lands at once and a
+   * single celebration follows, naming every Juz it finished.
+   */
+  const applyToPicked=(status:RevisionStatus)=>{
+    if(!picked.length) return;
+    const colored={...saved.colored},statuses={...saved.statuses},dates={...saved.dates};
+    for(const key of picked) {
+      if(!colored[key]) colored[key]=color;
+      statuses[key]=status;
+    }
+    const finished=juzs.filter(j=>juzMemorized(j,statuses)&&!dates[j.n]).map(j=>j.n);
+    for(const n of finished) dates[n]=localDay();
+    const wholeQuran=juzs.every(j=>juzMemorized(j,statuses))&&!dates[KHATM_KEY];
+    if(wholeQuran) dates[KHATM_KEY]=localDay();
+
+    setSaved(s=>({...s,colored,statuses,dates,
+      practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
+    setBulk(false);
+    setPicked([]);
+    if(wholeQuran) setTimeout(()=>setCelebrating({khatm:true,juz:finished}),200);
+    else if(finished.length) setTimeout(()=>setCelebrating({khatm:false,juz:finished}),200);
+  };
+  const togglePicked=(key:string)=>setPicked(p=>p.includes(key)?p.filter(k=>k!==key):[...p,key]);
+  const leaveBulk=()=>{ setBulk(false); setPicked([]); };
   const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};delete colored[statusBook.key];delete statuses[statusBook.key];delete dates[statusBook.juz];delete dates[KHATM_KEY];return {...s,colored,statuses,dates}});setStatusBook(null)};
   const update = (field:"name"|"dates"|"favorites", key:string, value:string) => setSaved(s=> field==="name" ? {...s,name:value} : {...s,[field]:{...s[field],[key]:value}});
   const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value}}));
@@ -528,7 +569,8 @@ export default function Home() {
           <h2>{rangeLabel}</h2>
           <div className="tools"><span>Book color</span>{colorOptions.map(option=><button key={option.value} aria-label={`Choose ${option.label}`} title={option.label} aria-pressed={color===option.value} className={`swatch ${option.background?"blend-swatch":""}`} onClick={()=>setColor(option.value)} style={{background:option.background||option.value}}/>)}</div>
         </div>
-        <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateAyahs={updateAyahs} openStatus={setStatusBook} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}/>
+        <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateAyahs={updateAyahs} openStatus={setStatusBook} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}
+          bulk={bulk} picked={picked} onPick={togglePicked} onPickAll={setPicked} onApply={applyToPicked} onStartBulk={()=>setBulk(true)} onLeaveBulk={leaveBulk}/>
       </>}
     </section>
 
@@ -536,7 +578,30 @@ export default function Home() {
 
     {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{startLearning(`${juz.n}-${n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}<button className="unmark" onClick={()=>setNextUp(null)}>Not right now</button></section></div>})()}
 
-    {celebrating&&<div className="celebration" role="dialog" aria-modal="true"><div className="confetti" aria-hidden="true">{Array.from({length:28},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div><div className="celebrate-card"><img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/><p className="eyebrow">{celebrating===KHATM_KEY?"THE WHOLE QURAN":"A BEAUTIFUL MILESTONE"}</p><h2>MashaAllah, {reciter}!</h2><p>{celebrating===KHATM_KEY?`You have memorized all 30 Juz — the whole Quran. May it stay bright in your heart for the rest of your life.`:`You completed Juz ${celebrating}. May every ayah stay bright in your heart.`}</p><div><button onClick={()=>{setCertificate(celebrating);setCelebrating(null)}}>See my certificate</button><button className="quiet" onClick={()=>setCelebrating(null)}>Keep exploring</button></div></div></div>}
+    {celebrating&&(()=>{
+      const {khatm,juz}=celebrating;
+      // The whole Quran gets a fuller, gold fall. No sound, ever.
+      const pieces=khatm?56:28;
+      return <div className="celebration" role="dialog" aria-modal="true">
+        <div className={`confetti ${khatm?"grand":""}`} aria-hidden="true">{Array.from({length:pieces},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div>
+        <div className="celebrate-card">
+          <img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/>
+          <p className="eyebrow">{khatm?"THE WHOLE QURAN":"A BEAUTIFUL MILESTONE"}</p>
+          <h2>MashaAllah, {reciter}!</h2>
+          <p>{khatm
+            ? "You have memorized all 30 Juz — the whole Quran. May it stay bright in your heart for the rest of your life."
+            : `You completed Juz ${listWords(juz)}. May every ayah stay bright in your heart.`}</p>
+          <div>
+            {khatm
+              ? <button onClick={()=>{setCertificate(KHATM_KEY);setCelebrating(null)}}>See my certificate</button>
+              : juz.length>1
+                ? juz.map(n=><button key={n} onClick={()=>{setCertificate(n);setCelebrating(null)}}>Juz {n} certificate</button>)
+                : <button onClick={()=>{setCertificate(juz[0]);setCelebrating(null)}}>See my certificate</button>}
+            <button className="quiet" onClick={()=>setCelebrating(null)}>Keep exploring</button>
+          </div>
+        </div>
+      </div>;
+    })()}
 
     {certificate&&(()=>{
       const khatm=certificate===KHATM_KEY;
@@ -585,14 +650,42 @@ function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
   </section>;
 }
 
-function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,openCertificate,openRow,setOpenRow}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateAyahs:(key:string,value:string)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void}) {
+function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,openCertificate,openRow,setOpenRow,bulk,picked,onPick,onPickAll,onApply,onStartBulk,onLeaveBulk}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateAyahs:(key:string,value:string)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void;bulk:boolean;picked:string[];onPick:(key:string)=>void;onPickAll:(keys:string[])=>void;onApply:(status:RevisionStatus)=>void;onStartBulk:()=>void;onLeaveBulk:()=>void}) {
   const first=juzs[0],crop=cropForJuz(first.n),groupLabel=juzs.length===1?`Juz ${first.n}`:`Juz ${first.n}–${juzs[juzs.length-1].n}`;
+  const pageKeys=juzs.flatMap(juz=>juz.surahs.map(n=>`${juz.n}-${n}`));
+  const allPicked=picked.length===pageKeys.length&&pageKeys.every(k=>picked.includes(k));
   return <div className="integrated-tracker">
     <div className={`interactive-art ${first.n===30?"wide-art":""}`}>
       <ArtCanvas juzs={juzs} saved={saved}/>
-      {juzs.flatMap(juz=>juz.surahs.map((n,i)=>{const s=surahs[n-1],key=`${juz.n}-${n}`,fill=saved.colored[key],status=saved.statuses[key]||(fill?"learning":undefined),r=juz.n!==30&&isolatedInteractionKeys.has(key)?targetedPaintRects[key]:fullBookRect(juz.n,bookRects[juz.n][i]),ir=iconRects[key];return <button key={key} className={`art-book ${fill?"filled":""} status-${status||"none"}`} style={{left:`${r[0]}%`,top:`${r[1]/crop*100}%`,width:`${r[2]}%`,height:`${r[3]/crop*100}%`,"--fill":fill||"#e05287"} as React.CSSProperties} onClick={()=>fill?openStatus({key,name:s.en,juz:juz.n}):toggle(key)} aria-pressed={!!fill} aria-label={`${fill?`Set revision status for ${s.en}`:`Mark ${s.en}`} in Juz ${juz.n}`} title={fill?`${s.en} — ${statusMeta[status!].label}`:`${s.en} — tap to color`}>{fill&&<JourneyIcon status={status!} style={ir?{left:`${(ir[0]-r[0])/r[2]*100}%`,top:`${(ir[1]-r[1])/r[3]*100}%`,width:`${ir[2]/r[2]*100}%`,height:`${ir[3]/r[3]*100}%`}:undefined}/>}</button>}))}
+      {juzs.flatMap(juz=>juz.surahs.map((n,i)=>{const s=surahs[n-1],key=`${juz.n}-${n}`,fill=saved.colored[key],status=saved.statuses[key]||(fill?"learning":undefined),r=juz.n!==30&&isolatedInteractionKeys.has(key)?targetedPaintRects[key]:fullBookRect(juz.n,bookRects[juz.n][i]),ir=iconRects[key];return <button key={key} className={`art-book ${fill?"filled":""} status-${status||"none"} ${bulk&&picked.includes(key)?"picked":""}`} style={{left:`${r[0]}%`,top:`${r[1]/crop*100}%`,width:`${r[2]}%`,height:`${r[3]/crop*100}%`,"--fill":fill||"#e05287"} as React.CSSProperties} onClick={()=>bulk?onPick(key):fill?openStatus({key,name:s.en,juz:juz.n}):toggle(key)} aria-pressed={bulk?picked.includes(key):!!fill} aria-label={bulk?`${picked.includes(key)?"Unpick":"Pick"} ${s.en} in Juz ${juz.n}`:`${fill?`Set revision status for ${s.en}`:`Mark ${s.en}`} in Juz ${juz.n}`} title={bulk?`${s.en} — tap to pick`:fill?`${s.en} — ${statusMeta[status!].label}`:`${s.en} — tap to color`}>{fill&&<JourneyIcon status={status!} style={ir?{left:`${(ir[0]-r[0])/r[2]*100}%`,top:`${(ir[1]-r[1])/r[3]*100}%`,width:`${ir[2]/r[2]*100}%`,height:`${ir[3]/r[3]*100}%`}:undefined}/>}</button>}))}
     </div>
-    <div className="art-actions"><p className="tap-hint"><span>✦</span> Tap the books directly in the artwork to select them <span>✦</span></p></div>
+    {/*
+      Marking several at once. Ten memorized Juz used to mean tapping every
+      book, choosing a status, then closing a certificate — over and over.
+      Here the taps only pick books; one button then sets them all.
+    */}
+    <div className="art-actions">
+      {bulk
+        ? <div className="bulk-bar" role="group" aria-label="Mark several books at once">
+            <p><strong>{picked.length} {bookWord(picked.length)} picked</strong> — tap the books in the artwork, then choose one status for all of them.</p>
+            <div className="bulk-choices">
+              {journeyOrder.map(status=>
+                <button key={status} disabled={!picked.length} onClick={()=>onApply(status)}>
+                  <JourneyIcon status={status}/><b>{statusMeta[status].label}</b>
+                </button>)}
+            </div>
+            <div className="bulk-tools">
+              <button type="button" onClick={()=>onPickAll(allPicked?[]:pageKeys)}>
+                {allPicked?"Pick none":`Pick all ${pageKeys.length} on this page`}
+              </button>
+              <button type="button" className="quiet" onClick={onLeaveBulk}>Done</button>
+            </div>
+          </div>
+        : <>
+            <p className="tap-hint"><span>✦</span> Tap the books directly in the artwork to select them <span>✦</span></p>
+            <button type="button" className="bulk-start" onClick={onStartBulk}>Mark several at once</button>
+          </>}
+    </div>
     <div className="group-notes" aria-label={`${groupLabel} completion details`}>
       {juzs.map(juz=>{
         // Each Juz collapses to a single summary line. Eight artwork pages of
