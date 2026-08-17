@@ -375,3 +375,25 @@ footer .footer-dua{margin:0 0 10px}
 .footer-backup .restore input{display:none}
 .footer-backup small{width:100%;color:#9ff0d2;font-size:.74rem}
 .footer-note{display:block;margin:10px auto 0;max-width:34rem;color:#a996cc;font-size:.72rem;line-height:1.5}
+
+/* ---- A quick look around ------------------------------------------------- */
+.tour{position:fixed;inset:0;z-index:1200}
+.tour-hole{position:fixed;border-radius:18px;box-shadow:0 0 0 9999px #050425d9,0 0 0 3px #f2c94c,
+  0 0 34px #ffc64b66;pointer-events:none;transition:top .22s,left .22s,width .22s,height .22s}
+.tour-card{position:fixed;left:50%;transform:translateX(-50%);width:min(430px,92vw);z-index:1201;
+  padding:20px 22px;text-align:center;border:3px solid #eacb62;border-radius:22px;
+  background:linear-gradient(160deg,#2b1560,#4a2585);box-shadow:0 20px 50px #000a}
+.tour-card.middle{top:50%;transform:translate(-50%,-50%)}
+.tour-moon{display:block;font-size:2rem;color:#f3d979;margin-bottom:2px}
+.tour-count{margin:0 0 4px;color:#f3d979;font-size:.68rem;font-weight:900;letter-spacing:.16em}
+.tour-card h2{font-family:Georgia,serif;font-size:1.3rem;color:#fff;margin:0 0 8px}
+.tour-card p{color:#e9dcff;font-size:.88rem;line-height:1.6;margin:0 0 14px}
+.tour-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+.tour-next{border:2px solid #e6bc47;border-radius:99px;padding:9px 22px;font-family:inherit;
+  font-weight:900;font-size:.86rem;cursor:pointer;background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed}
+.tour-next:hover{box-shadow:0 0 22px #ffc64b66}
+.tour-skip{border:2px solid #8f74c8;border-radius:99px;padding:9px 18px;background:transparent;
+  color:#d9c8f5;font-family:inherit;font-weight:800;font-size:.82rem;cursor:pointer}
+.tour-skip:hover{border-color:#eacb62;color:#fff8ed}
+.gate-small{font-size:.78rem;color:#c9b6ea;margin-top:-4px}
+@media(prefers-reduced-motion:reduce){.tour-hole{transition:none}}

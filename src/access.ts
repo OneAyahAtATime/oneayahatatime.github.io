@@ -21,10 +21,15 @@ export const RECHECK_DAYS = 7;
    button falls back to an email, so there is never a moment where somebody taps
    "get it" and lands nowhere. Filling it in is a one-line change. */
 export const CHECKOUT_URL = "";                       // e.g. "https://xxx.lemonsqueezy.com/buy/xxxx"
-export const UPGRADE_URL  = "";                       // the $15 upgrade link, same idea
+export const UPGRADE_URL  = "";                       // the $25 upgrade link, same idea
 export const SUPPORT_EMAIL = "oneayahtime@gmail.com";
 export const PRICE_LINE = "$40 a year for the whole family";
-export const UPGRADE_LINE = "$15 if you already have Spelling Quest or Muslim Kids Checklist";
+export const UPGRADE_LINE = "$25 if you already have Spelling Quest or Muslim Kids Checklist";
+
+/* Sister products. Muslim Kids Checklist has no public address yet — until it
+   does, it is named in the copy without a link rather than linked wrongly. */
+export const SPELLING_QUEST_URL = "https://spellingquest.github.io";
+export const KIDS_CHECKLIST_URL = "";
 
 const LS_API = "https://api.lemonsqueezy.com/v1/licenses";
 

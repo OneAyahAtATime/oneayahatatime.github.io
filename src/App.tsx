@@ -4,6 +4,7 @@ import {
   readAccess, recheck, writeAccess, trialLeft,
   PRICE_LINE, TRIAL_DAYS, UPGRADE_LINE,
 } from "./access";
+import Tour, { tourSeen, markTourSeen } from "./Tour";
 
 /**
  * Artwork lives in public/ and is referenced relative to wherever the site is
@@ -351,7 +352,7 @@ function Gate({ state, onStartTrial, onUnlock }:{
 
   const heading = state==="ended" ? "Your subscription has ended"
     : state==="trial-over" ? "Your free week is up"
-    : "Start memorizing today";
+    : "Your Quran journey, one ayah at a time";
 
   return <main className="gate-screen">
     <section className="gate">
@@ -368,12 +369,14 @@ function Gate({ state, onStartTrial, onUnlock }:{
         : state==="trial-over"
         ? <p>We hope it was a good week. Carry on for <strong>{PRICE_LINE}</strong> — one payment for
             the whole household, however many reciters you add.</p>
-        : <p>An illustrated tracker for memorizing the Quran. Color in a book for every surah,
-            watch a Juz fill up, and print a certificate when it’s in your heart.</p>}
+        : <><p>Memorizing the Quran is a long road, and it is easy to lose sight of how far you have
+            already come. This is somewhere to see it — a shelf of beautiful books, one for every
+            surah, filling in as they settle into your heart.</p>
+          <p className="gate-small">Made by a small, Muslim-owned family business.</p></>}
 
       {state==="new" && <div className="gate-trial">
-        <button className="gate-primary" onClick={onStartTrial}>Start my {TRIAL_DAYS} free days</button>
-        <small>No card, no account. Nothing to cancel.</small>
+        <button className="gate-primary" onClick={onStartTrial}>Begin my {TRIAL_DAYS} free days</button>
+        <small>No card, no account, nothing to cancel — just start.</small>
       </div>}
 
       <div className="gate-key">
@@ -388,7 +391,7 @@ function Gate({ state, onStartTrial, onUnlock }:{
       </div>
 
       <div className="gate-buy">
-        <a className="gate-primary" href={buyHref()}>{state==="ended"?"Start again":"Get it"} — {PRICE_LINE}</a>
+        <a className="gate-primary" href={buyHref()}>{state==="ended"?"Start again":"Keep it for a year"} — {PRICE_LINE}</a>
         <small>{UPGRADE_LINE} — <a href={buyHref(true)}>upgrade here</a></small>
         <small>12 months, renews on its own until you cancel. Cancel any time from the shop.</small>
       </div>
@@ -454,6 +457,11 @@ export default function Home() {
   },[]);
   const gateState = accessState(access);
   const daysLeft = trialLeft(access);
+  // Shown once to anyone starting out, and available again from the footer.
+  const [tour,setTour] = useState(false);
+  useEffect(()=>{
+    if(hasAccess(access)&&!tourSeen()) setTour(true);
+  },[access]);
 
   // Progress is kept in this browser's own storage. There is no server: the
   // site is a set of static files, so nothing is sent anywhere. Syncing a
@@ -805,10 +813,12 @@ export default function Home() {
       return <div className={`certificate-screen ${khatm?"khatm":""}`} role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>{khatm?"Khatm al-Qur’an":"MashaAllah!"}</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>{khatm?"who has memorized all 30 Juz and":"for completing"}</span><h3>{khatm?`has become a ${honorific}`:`Juz ${certificate}`}</h3><p className="cert-date">Completed {shown}</p>{khatm&&<p className="cert-honorific no-print">Show this certificate as{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={honorific===option?"selected":undefined} aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}</p>}<div className="cert-dua">{khatm?"May Allah make the Quran the light of your heart and your companion always.":"May Allah fill your heart with the light of the Quran."}</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>;
     })()}
 
+    {tour&&<Tour onDone={()=>setTour(false)}/>}
     <footer>
       <p className="footer-dua"><span>☾</span> May every page bring your heart closer to the Quran. <span>♥</span></p>
       <div className="footer-backup">
         <button type="button" onClick={exportProgress}>Save a copy of your progress</button>
+        <button type="button" onClick={()=>{markTourSeen();setTour(true)}}>Show me around</button>
         <label className="restore">
           Load a saved copy
           <input type="file" accept="application/json,.json"
