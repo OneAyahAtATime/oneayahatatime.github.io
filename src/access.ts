@@ -17,11 +17,20 @@ export const TRIAL_DAYS = 7;
 export const RECHECK_DAYS = 7;
 
 /* ---- the shop --------------------------------------------------------------
-   CHECKOUT_URL is the Lemon Squeezy buy link. Until it is filled in, every buy
-   button falls back to an email, so there is never a moment where somebody taps
-   "get it" and lands nowhere. Filling it in is a one-line change. */
-export const CHECKOUT_URL = "";                       // e.g. "https://xxx.lemonsqueezy.com/buy/xxxx"
-export const UPGRADE_URL  = "";                       // the $25 upgrade link, same idea
+   The two buy links from the One Ayah At A Time store on Lemon Squeezy (store
+   `oneayahatatime`, separate from Spelling Quest so that a family buying a Quran
+   tracker never gets mail branded with the other product).
+
+   Both are annual subscriptions with licence keys and an unlimited activation
+   limit, so every phone, tablet and laptop in a house can unlock with the same
+   key. The upgrade product is hidden from the storefront on purpose — it is only
+   reachable through the link below, which is shown to people who say they
+   already own Spelling Quest or Muslim Kids Checklist.
+
+   If either is ever blanked out, the buy buttons fall back to an email rather
+   than landing nowhere. */
+export const CHECKOUT_URL = "https://oneayahatatime.lemonsqueezy.com/checkout/buy/59b44647-2e95-4f4a-924d-3a678975ea2d";
+export const UPGRADE_URL  = "https://oneayahatatime.lemonsqueezy.com/checkout/buy/24731e95-f176-4e06-98c4-a4217986f920";
 export const SUPPORT_EMAIL = "oneayahtime@gmail.com";
 export const PRICE_LINE = "$40 a year for the whole family";
 export const UPGRADE_LINE = "$25 if you already have Spelling Quest or Muslim Kids Checklist";

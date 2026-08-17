@@ -1,9 +1,13 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type Access, type Licence, accessState, activateKey, buyHref, hasAccess, looksLikeKey,
   readAccess, recheck, writeAccess, trialLeft,
   PRICE_LINE, TRIAL_DAYS, UPGRADE_LINE,
 } from "./access";
+import {
+  type RemoteReciter, type SyncState,
+  familyFingerprint, pullReciters, pushReciter, reciterHasBeenUsed,
+} from "./sync";
 import Tour, { tourSeen, markTourSeen } from "./Tour";
 
 /**
@@ -188,8 +192,35 @@ function JourneyIcon({status,className="",style}:{status:RevisionStatus;classNam
  * the whole Quran was finished. `honorific` is only used on that certificate.
  */
 type Honorific = "Hafizah" | "Hafiz";
-type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; practiceDays:string[]; honorific?:Honorific };
-const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, practiceDays:[], honorific:"Hafizah" };
+type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific };
+const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah" };
+
+/**
+ * When each book's status was last changed, as a plain millisecond stamp.
+ *
+ * It exists so that progress can travel between a family's devices without one
+ * of them undoing another's work: the newer decision wins, per book. Marking a
+ * memorized surah back to muraja'ah is a real decision and must survive; a phone
+ * that has been in a drawer since Ramadan must not be able to reverse it.
+ */
+const stampStatus = (previous:Record<string,number>|undefined, keys:string[]):Record<string,number> => {
+  const at = { ...(previous||{}) };
+  const now = Date.now();
+  for(const key of keys) at[key] = now;
+  return at;
+};
+
+/**
+ * What this device has to say about every book it has an opinion on, including
+ * the ones somebody took back to blank. A book with a stamp but no status was
+ * un-marked here; sending "cleared" is how that undo reaches the family's other
+ * devices instead of being quietly reversed by one of them.
+ */
+const outgoingStatuses = (saved:Saved):Record<string,string> => {
+  const out:Record<string,string> = { ...saved.statuses };
+  for(const key of Object.keys(saved.statusAt||{})) if(!out[key]) out[key] = "cleared";
+  return out;
+};
 const KHATM_KEY="khatm";
 const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 
@@ -198,9 +229,10 @@ const localDay=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.get
  * id, so renaming a reciter — or adding and removing others — never disturbs
  * anyone else's books.
  *
- * No name ships with the app and none is required: the default is neutral,
- * families are asked for a nickname rather than a full name, and whatever they
- * type stays in their own browser. Nothing is sent anywhere.
+ * No name ships with the app and none is required: the default is neutral, and
+ * families are asked for a nickname rather than a full name. A nickname does
+ * travel to the family's own devices once they hold a licence key, filed under a
+ * fingerprint of that key and nothing else — see sync.ts.
  */
 type Reciter = { id:string; name:string };
 const RECITERS_KEY="quran-tracker-reciters";
@@ -239,6 +271,7 @@ function normalize(raw:unknown,name:string):Saved {
     ayahs:partial.ayahs??ayahsFromWorkingOn(partial.workingOn),
     workingOn:partial.workingOn??{},
     statuses:partial.statuses??{},
+    statusAt:partial.statusAt??{},
     practiceDays:partial.practiceDays??[],
     honorific:partial.honorific==="Hafiz"?"Hafiz":"Hafizah",
   };
@@ -463,9 +496,140 @@ export default function Home() {
     if(hasAccess(access)&&!tourSeen()) setTour(true);
   },[access]);
 
-  // Progress is kept in this browser's own storage. There is no server: the
-  // site is a set of static files, so nothing is sent anywhere. Syncing a
-  // reciter's progress between devices comes later, via a family code.
+  /* ---- progress that travels ---------------------------------------------
+     Progress is kept in this browser's own storage first, always: the app works
+     with no connection at all and never waits for a network call before showing
+     somebody their books. On top of that, a family with a licence key also has
+     their progress carried between their devices, filed under a fingerprint of
+     that key — see sync.ts for what that means and why it is safe.
+
+     During the free week there is no key, so there is no fingerprint, and
+     nothing about that week ever leaves the device. */
+  const [syncLine,setSyncLine] = useState<SyncState>("off");
+  const syncing = useRef(false);
+  const syncTimer = useRef<number|undefined>(undefined);
+  const firstSync = useRef(true);
+
+  /** Fold one device's record into another. Newer decisions win, per book. */
+  const merge = (mine:Saved, theirs:RemoteReciter):Saved => {
+    const statuses:Record<string,RevisionStatus> = {...mine.statuses};
+    const statusAt:Record<string,number> = {...(mine.statusAt||{})};
+    const colored:Record<string,string> = {...theirs.colored, ...mine.colored};
+    for(const [key,value] of Object.entries(theirs.statuses||{})) {
+      const ours = statusAt[key] ?? 0;
+      const yours = theirs.status_at?.[key] ?? 0;
+      if(yours < ours) continue;
+      statusAt[key] = yours;
+      // "cleared" is how a book somebody un-marked travels: it is never a
+      // status the app shows, only the news that the book went back to blank.
+      if(value==="cleared") { delete statuses[key]; delete colored[key]; }
+      else statuses[key] = value as RevisionStatus;
+    }
+    for(const key of Object.keys(statuses)) if(!colored[key]) colored[key] = theirs.colored?.[key] ?? color;
+    return {
+      ...mine,
+      // A name typed on this device wins over a placeholder from another.
+      name: /^Reciter \d+$/.test(mine.name) && theirs.nickname ? theirs.nickname : mine.name,
+      colored, statuses, statusAt,
+      // Notes and dates merge, with whatever is being typed here left alone.
+      dates: {...theirs.dates, ...mine.dates},
+      favorites: {...theirs.favorites, ...mine.favorites},
+      ayahs: {...theirs.ayahs, ...mine.ayahs},
+      workingOn: {...(theirs.working_on as Record<string,CurrentWork>), ...mine.workingOn},
+      practiceDays: Array.from(new Set([...(theirs.practice_days||[]), ...(mine.practiceDays||[])])).sort(),
+      honorific: mine.honorific && mine.honorific!=="Hafizah" ? mine.honorific
+        : (theirs.honorific==="Hafiz" ? "Hafiz" : mine.honorific ?? "Hafizah"),
+    };
+  };
+
+  const syncNow = useCallback(async ()=>{
+    const fp = await familyFingerprint(access);
+    if(!fp) { setSyncLine("off"); return; }
+    if(syncing.current) return;
+    if(typeof navigator!=="undefined" && navigator.onLine===false) { setSyncLine("offline"); return; }
+    syncing.current = true; setSyncLine("working");
+    try {
+      const rows = await pullReciters(fp);
+      let list = readReciters();
+      for(const row of rows) {
+        if(row.removed) {
+          // removed on another device — take them off this one too
+          if(list.some(r=>r.id===row.reciter_id)) { forgetProgress(row.reciter_id); list = list.filter(r=>r.id!==row.reciter_id); }
+          continue;
+        }
+        const known = list.find(r=>r.id===row.reciter_id);
+        const mine = readProgress(row.reciter_id, known?.name ?? row.nickname ?? defaultReciterName(list.length+1));
+        const merged = merge(mine, row);
+        writeProgress(row.reciter_id, merged);
+        if(known) { if(known.name!==merged.name) list = list.map(r=>r.id===row.reciter_id?{...r,name:merged.name}:r); }
+        else list = [...list, { id:row.reciter_id, name:merged.name }];
+      }
+      /* A device opened for the first time has one untouched "Reciter 1". Once
+         the real family arrives from another device, that placeholder is only
+         clutter — a parent entering their key on a new phone should see their
+         own reciters, not a stranger alongside them.
+
+         Only on the first sync after opening the app, though. Later on, an
+         untouched reciter is one somebody has just this moment added and not yet
+         named, and tidying that away underneath them would be maddening. */
+      const arrived = new Set(rows.filter(r=>!r.removed).map(r=>r.reciter_id));
+      if(firstSync.current && arrived.size) {
+        const keep = list.filter(r=>arrived.has(r.id)||reciterHasBeenUsed(r.name,readProgress(r.id,r.name)));
+        if(keep.length && keep.length!==list.length) {
+          for(const gone of list) if(!keep.includes(gone)) forgetProgress(gone.id);
+          list = keep;
+        }
+      }
+      firstSync.current = false;
+      /* Anyone added while this sync was in the air belongs in the list too.
+         Without this, the snapshot taken at the top would be written back over
+         them and a brand-new reciter would vanish a couple of seconds after
+         being created. */
+      const removedHere = new Set(rows.filter(r=>r.removed).map(r=>r.reciter_id));
+      for(const r of readReciters())
+        if(!list.some(x=>x.id===r.id) && !removedHere.has(r.id)) list = [...list,r];
+      if(!list.length) list = readReciters();
+      writeReciters(list);
+
+      for(const r of list) {
+        const mine = readProgress(r.id,r.name);
+        if(!reciterHasBeenUsed(r.name,mine)) continue;    // don't send placeholders
+        await pushReciter(fp,{ id:r.id, name:r.name, colored:mine.colored, statuses:outgoingStatuses(mine),
+          statusAt:mine.statusAt||{}, dates:mine.dates, favorites:mine.favorites, ayahs:mine.ayahs,
+          workingOn:mine.workingOn, practiceDays:mine.practiceDays, honorific:mine.honorific ?? "Hafizah" });
+      }
+
+      setReciters(list);
+      if(list.some(r=>r.id===activeId)) setSaved(readProgress(activeId,list.find(r=>r.id===activeId)!.name));
+      else if(list.length) setActiveId(list[0].id);
+      setSyncLine("ok");
+    } catch {
+      setSyncLine("later");                 // never let a sync problem interrupt anybody
+    } finally {
+      syncing.current = false;
+    }
+  // merge and the setters are stable for the life of the screen.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[access,activeId]);
+
+  useEffect(()=>{
+    if(!hasAccess(access)) return;
+    syncNow();
+    const wake = ()=>{ if(!document.hidden) syncNow() };
+    document.addEventListener("visibilitychange",wake);
+    window.addEventListener("online",syncNow);
+    return ()=>{ document.removeEventListener("visibilitychange",wake); window.removeEventListener("online",syncNow) };
+  },[access,syncNow]);
+
+  useEffect(()=>{
+    if(loadedId!==activeId) return;
+    // Every save nudges a sync, held back a moment so that racing through a
+    // page of books doesn't fire one for each tap.
+    window.clearTimeout(syncTimer.current);
+    syncTimer.current = window.setTimeout(()=>{ syncNow() },2500);
+    return ()=>window.clearTimeout(syncTimer.current);
+  },[saved,activeId,loadedId,syncNow]);
+
   useEffect(()=>{
     const current=reciters.find(r=>r.id===activeId);
     setSaved(readProgress(activeId,current?.name ?? defaultReciterName(1)));
@@ -503,6 +667,14 @@ export default function Home() {
   const removeReciter=()=>{
     if(reciters.length<2) return;
     const remaining=reciters.filter(r=>r.id!==activeId);
+    const going=activeId;
+    // Tell the family's other devices, so a reciter removed here doesn't come
+    // back from a phone that still has them. The removal sticks on the server.
+    familyFingerprint(access).then(fp=>{
+      if(fp) pushReciter(fp,{ id:going, name:"", colored:{}, statuses:{}, statusAt:{}, dates:{},
+        favorites:{}, ayahs:{}, workingOn:{}, practiceDays:[], honorific:"Hafizah", removed:true })
+        .catch(()=>{ /* it will be sent again on the next sync */ });
+    });
     forgetProgress(activeId);
     commitReciters(remaining);
     setActiveId(remaining[Math.min(activeIndex,remaining.length-1)].id);
@@ -566,6 +738,7 @@ export default function Home() {
       ...s,
       colored,
       statuses:{...s.statuses,[key]:"learning"},
+      statusAt:stampStatus(s.statusAt,[key]),
       practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()])),
     };
   });
@@ -583,7 +756,7 @@ export default function Home() {
     const justFinishedQuran=justFinishedJuz&&juzs.every(j=>juzMemorized(j,nextStatuses))&&!saved.dates[KHATM_KEY];
 
     setSaved(s=>{
-      const next:Saved={...s,statuses:{...s.statuses,[key]:status},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
+      const next:Saved={...s,statuses:{...s.statuses,[key]:status},statusAt:stampStatus(s.statusAt,[key]),practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
       if(justFinishedJuz) next.dates={...s.dates,[juz]:localDay()};
       if(justFinishedQuran) next.dates={...next.dates,[KHATM_KEY]:localDay()};
       return next;
@@ -613,7 +786,7 @@ export default function Home() {
     const wholeQuran=juzs.every(j=>juzMemorized(j,statuses))&&!dates[KHATM_KEY];
     if(wholeQuran) dates[KHATM_KEY]=localDay();
 
-    setSaved(s=>({...s,colored,statuses,dates,
+    setSaved(s=>({...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,picked),
       practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
     setBulk(false);
     setPicked([]);
@@ -622,18 +795,23 @@ export default function Home() {
   };
   const togglePicked=(key:string)=>setPicked(p=>p.includes(key)?p.filter(k=>k!==key):[...p,key]);
   const leaveBulk=()=>{ setBulk(false); setPicked([]); };
-  const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};delete colored[statusBook.key];delete statuses[statusBook.key];delete dates[statusBook.juz];delete dates[KHATM_KEY];return {...s,colored,statuses,dates}});setStatusBook(null)};
+  /**
+   * Take a book back to blank. The stamp is still moved forward, so that the
+   * undo travels to the family's other devices instead of being quietly
+   * reversed by whichever of them last saw the book marked.
+   */
+  const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};delete colored[statusBook.key];delete statuses[statusBook.key];delete dates[statusBook.juz];delete dates[KHATM_KEY];return {...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,[statusBook.key])}});setStatusBook(null)};
   const update = (field:"name"|"dates"|"favorites", key:string, value:string) => setSaved(s=> field==="name" ? {...s,name:value} : {...s,[field]:{...s[field],[key]:value}});
   const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value}}));
   /** Marking a book as being learned is how a family says "this is what we're on". */
-  const startLearning = (key:string) => setSaved(s=>({...s,statuses:{...s.statuses,[key]:"learning"},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
+  const startLearning = (key:string) => setSaved(s=>({...s,statuses:{...s.statuses,[key]:"learning"},statusAt:stampStatus(s.statusAt,[key]),practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
 
   /**
    * Saving and restoring a copy by hand.
    *
-   * Progress lives in this browser and nowhere else. Until there is real
-   * syncing, a cleared browser or a new phone would cost a family a year of
-   * work, so they can carry it themselves. Everything the app stores is
+   * Progress travels between a family's devices on its own once they have a
+   * licence key, but the free week is device-only by design, and some people
+   * simply want a copy they hold themselves. Everything the app stores is
    * included — every reciter and their books.
    */
   const exportProgress = () => {
@@ -715,7 +893,12 @@ export default function Home() {
                   : <button type="button" className="remove-reciter" onClick={()=>setConfirmRemove(true)}>Remove this reciter</button>)}
               </form>
             : <button type="button" className="rename-learner" onClick={()=>setRenaming(true)}>Rename {reciter}</button>}
-          <small><i className={syncStatus.includes("won’t let")?"error":""}/> {syncStatus}</small>
+          <small><i className={syncStatus.includes("won’t let")?"error":""}/> {
+            syncStatus.includes("won’t let") ? syncStatus
+            : syncLine==="ok"      ? "Saved on all your devices"
+            : syncLine==="working" ? "Saving…"
+            : syncStatus
+          }</small>
         </div>
       </header>
 
@@ -826,8 +1009,13 @@ export default function Home() {
         </label>
         {restored&&<small role="status">{restored}</small>}
       </div>
-      <small className="footer-note">Your books are saved in this browser only. Save a copy before
-        clearing your browser or moving to a new device.</small>
+      <small className="footer-note">{syncLine==="off"
+        ? <>Your books are saved in this browser. Once you have a licence key they travel to your
+            other devices on their own — and you can always save a copy to keep.</>
+        : syncLine==="ok" ? <>Up to date on all your devices.</>
+        : syncLine==="working" ? <>Catching up with your other devices…</>
+        : syncLine==="offline" ? <>No connection right now. Your books are safe here and will catch up later.</>
+        : <>Your books are safe here. They will catch up with your other devices shortly.</>}</small>
       <GateFooter/>
     </footer>
   </main>
