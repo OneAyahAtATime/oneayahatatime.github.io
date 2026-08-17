@@ -1,4 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  type Access, type Licence, accessState, activateKey, buyHref, hasAccess, looksLikeKey,
+  readAccess, recheck, writeAccess, trialLeft,
+  PRICE_LINE, TRIAL_DAYS, UPGRADE_LINE,
+} from "./access";
 
 /**
  * Artwork lives in public/ and is referenced relative to wherever the site is
@@ -309,6 +314,101 @@ function forgetProgress(id:string):void {
   try { localStorage.removeItem(progressKey(id)); } catch { /* storage blocked */ }
 }
 
+/**
+ * The way in. Three faces, because the three reasons someone is standing here
+ * are completely different and deserve different words:
+ *
+ *  - "new"        never opened the door. Offer the free week.
+ *  - "trial-over" had the free week. It's up.
+ *  - "ended"      paid, and the subscription has since stopped. The most
+ *                 delicate one: their books are safe and they need to know that
+ *                 before anything else, because the usual cause is a card that
+ *                 quietly failed rather than a decision to leave.
+ */
+function Gate({ state, onStartTrial, onUnlock }:{
+  state: "new"|"trial-over"|"ended";
+  onStartTrial: () => void;
+  onUnlock: (licence: Licence) => void;
+}) {
+  const [typed,setTyped] = useState("");
+  const [busy,setBusy] = useState(false);
+  const [problem,setProblem] = useState("");
+
+  const unlock = async () => {
+    const value = typed.trim();
+    if(!looksLikeKey(value)) { setProblem("That doesn’t look like a key — check the email from the shop."); return; }
+    setBusy(true); setProblem("");
+    try {
+      const res = await activateKey(value);
+      if(res?.activated) onUnlock({ key:value, instance:res.instance?.id ?? null, checked:Date.now(), dead:false });
+      else { setProblem("That key didn’t work. Check it, or email us and we’ll sort it out."); setBusy(false); }
+    } catch {
+      // No internet, or the browser blocked the call. Let them in and confirm later
+      // rather than leave someone who has paid staring at a locked door.
+      onUnlock({ key:value, instance:null, checked:0, dead:false, pending:true });
+    }
+  };
+
+  const heading = state==="ended" ? "Your subscription has ended"
+    : state==="trial-over" ? "Your free week is up"
+    : "Start memorizing today";
+
+  return <main className="gate-screen">
+    <section className="gate">
+      <img className="gate-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/>
+      <p className="eyebrow">ONE AYAH AT A TIME</p>
+      <h1>{heading}</h1>
+
+      {state==="ended"
+        ? <><p className="gate-reassure"><strong>Nothing has been deleted.</strong> Every book, date and
+            certificate is still saved on this device, exactly as you left it. It comes straight back
+            when the subscription starts again.</p>
+          <p>The usual reason is a card that expired or a payment that didn’t go through — check your
+            email from Lemon Squeezy. If you think this is a mistake, email us and we will fix it.</p></>
+        : state==="trial-over"
+        ? <p>We hope it was a good week. Carry on for <strong>{PRICE_LINE}</strong> — one payment for
+            the whole household, however many reciters you add.</p>
+        : <p>An illustrated tracker for memorizing the Quran. Color in a book for every surah,
+            watch a Juz fill up, and print a certificate when it’s in your heart.</p>}
+
+      {state==="new" && <div className="gate-trial">
+        <button className="gate-primary" onClick={onStartTrial}>Start my {TRIAL_DAYS} free days</button>
+        <small>No card, no account. Nothing to cancel.</small>
+      </div>}
+
+      <div className="gate-key">
+        <label htmlFor="licence-key">{state==="ended"?"Paste a new key":"Already have a key?"}</label>
+        <input id="licence-key" value={typed} placeholder="Paste your key" autoComplete="off"
+          onChange={e=>setTyped(e.target.value)}
+          onKeyDown={e=>{ if(e.key==="Enter") unlock() }}/>
+        <button className={state==="new"?"gate-secondary":"gate-primary"} disabled={busy} onClick={unlock}>
+          {busy?"Checking…":"Unlock"}
+        </button>
+        {problem&&<p className="gate-problem" role="alert">{problem}</p>}
+      </div>
+
+      <div className="gate-buy">
+        <a className="gate-primary" href={buyHref()}>{state==="ended"?"Start again":"Get it"} — {PRICE_LINE}</a>
+        <small>{UPGRADE_LINE} — <a href={buyHref(true)}>upgrade here</a></small>
+        <small>12 months, renews on its own until you cancel. Cancel any time from the shop.</small>
+      </div>
+
+      <GateFooter/>
+    </section>
+  </main>;
+}
+
+/** The links a shop is expected to carry, on every screen someone can reach. */
+function GateFooter() {
+  return <p className="legal-links">
+    <a href={asset("about.html")}>About</a>
+    <a href={asset("contact.html")}>Contact</a>
+    <a href={asset("terms.html")}>Terms</a>
+    <a href={asset("privacy.html")}>Privacy</a>
+    <a href={asset("refunds.html")}>Refunds</a>
+  </p>;
+}
+
 export default function Home() {
   const [saved,setSaved] = useState<Saved>(empty);
   const [reciters,setReciters] = useState<Reciter[]>(readReciters);
@@ -336,6 +436,24 @@ export default function Home() {
   const [bulk,setBulk] = useState(false);
   const [picked,setPicked] = useState<string[]>([]);
   const [nextUp,setNextUp] = useState<{juz:number;name:string}|null>(null);
+
+  /* ---- the way in --------------------------------------------------------
+     Access is kept apart from progress on purpose: progress belongs to the
+     family and is never touched by any of this. Losing access hides the app,
+     it never deletes a book. */
+  const [access,setAccess] = useState<Access>(readAccess);
+  const saveAccess = (next:Access) => { setAccess(next); writeAccess(next); };
+  useEffect(()=>{
+    // The quiet weekly re-check, and it is genuinely quiet: it resolves to null
+    // for every failure that isn't the service saying the key is finished.
+    let live = true;
+    recheck(access).then(next=>{ if(live&&next) saveAccess(next) });
+    return ()=>{ live=false };
+  // Only on load. Re-running this on every access change would loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
+  const gateState = accessState(access);
+  const daysLeft = trialLeft(access);
 
   // Progress is kept in this browser's own storage. There is no server: the
   // site is a set of static files, so nothing is sent anywhere. Syncing a
@@ -502,8 +620,60 @@ export default function Home() {
   /** Marking a book as being learned is how a family says "this is what we're on". */
   const startLearning = (key:string) => setSaved(s=>({...s,statuses:{...s.statuses,[key]:"learning"},practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
 
+  /**
+   * Saving and restoring a copy by hand.
+   *
+   * Progress lives in this browser and nowhere else. Until there is real
+   * syncing, a cleared browser or a new phone would cost a family a year of
+   * work, so they can carry it themselves. Everything the app stores is
+   * included — every reciter and their books.
+   */
+  const exportProgress = () => {
+    const data:Record<string,string> = {};
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key?.startsWith("quran-tracker-")&&key!=="quran-tracker-access") data[key]=localStorage.getItem(key)!;
+    }
+    const blob=new Blob([JSON.stringify({app:"One Ayah At A Time",saved:localDay(),data},null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");
+    a.href=url; a.download=`one-ayah-progress-${localDay()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  const [restored,setRestored] = useState("");
+  const importProgress = (file:File) => {
+    const reader=new FileReader();
+    reader.onload=()=>{
+      try {
+        const parsed=JSON.parse(String(reader.result)) as {app?:string;data?:Record<string,string>};
+        if(parsed.app!=="One Ayah At A Time"||!parsed.data) throw new Error("not ours");
+        for(const [key,value] of Object.entries(parsed.data)){
+          if(key.startsWith("quran-tracker-")&&key!=="quran-tracker-access") localStorage.setItem(key,value);
+        }
+        setRestored("Loaded. Opening your books…");
+        setTimeout(()=>window.location.reload(),700);
+      } catch {
+        setRestored("That file didn’t look like a One Ayah backup.");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Everything below this line is for people who may actually use the app.
+  if(!hasAccess(access)) return <Gate
+    state={gateState==="ended"?"ended":gateState==="trial-over"?"trial-over":"new"}
+    onStartTrial={()=>saveAccess({...access,trialStart:Date.now()})}
+    onUnlock={licence=>saveAccess({...access,licence})}/>;
+
   return <main>
     <section className="experience">
+      {gateState==="trial" && daysLeft!==null && <p className="trial-strip">
+        <span>☾</span>
+        <strong>{daysLeft} {daysLeft===1?"day":"days"} left</strong> of your free week — everything is
+        unlocked, certificates included.
+        <a href={buyHref()}>Get it for {PRICE_LINE.replace(" for the whole family","")}</a>
+      </p>}
       <header className={`app-titlebar ${onHome?"":"compact"}`}>
         <div className="app-brand"><span className="brand-moon">☾</span><div><p>ONE AYAH AT A TIME</p><h1>My Quran <span>Memorization Tracker</span></h1></div></div>
         <div className="child-switch" aria-label="Choose a reciter">
@@ -635,7 +805,21 @@ export default function Home() {
       return <div className={`certificate-screen ${khatm?"khatm":""}`} role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>{khatm?"Khatm al-Qur’an":"MashaAllah!"}</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>{khatm?"who has memorized all 30 Juz and":"for completing"}</span><h3>{khatm?`has become a ${honorific}`:`Juz ${certificate}`}</h3><p className="cert-date">Completed {shown}</p>{khatm&&<p className="cert-honorific no-print">Show this certificate as{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={honorific===option?"selected":undefined} aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}</p>}<div className="cert-dua">{khatm?"May Allah make the Quran the light of your heart and your companion always.":"May Allah fill your heart with the light of the Quran."}</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>;
     })()}
 
-    <footer><span>☾</span><p>May every page bring your heart closer to the Quran.</p><span>♥</span></footer>
+    <footer>
+      <p className="footer-dua"><span>☾</span> May every page bring your heart closer to the Quran. <span>♥</span></p>
+      <div className="footer-backup">
+        <button type="button" onClick={exportProgress}>Save a copy of your progress</button>
+        <label className="restore">
+          Load a saved copy
+          <input type="file" accept="application/json,.json"
+            onChange={e=>{ const f=e.target.files?.[0]; if(f) importProgress(f); e.target.value="" }}/>
+        </label>
+        {restored&&<small role="status">{restored}</small>}
+      </div>
+      <small className="footer-note">Your books are saved in this browser only. Save a copy before
+        clearing your browser or moving to a new device.</small>
+      <GateFooter/>
+    </footer>
   </main>
 }
 

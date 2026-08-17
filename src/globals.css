@@ -323,3 +323,55 @@
 /* "+ Add reciter" was dark purple on the dark header — 2.5:1, barely visible. */
 .app-titlebar .child-switch .add-reciter{color:#e4d3ff !important;border-color:#bd9be0 !important}
 .app-titlebar .child-switch .add-reciter:hover{background:#fff8ed !important;color:#4c2588 !important;border-color:#eacb62 !important}
+
+/* ---- The way in ---------------------------------------------------------- */
+.gate-screen{min-height:100vh;display:grid;place-items:center;padding:24px 16px}
+.gate{width:min(560px,96vw);padding:34px 30px 22px;text-align:center;border:3px solid #eacb62;
+  border-radius:28px;background:linear-gradient(160deg,#2b1560,#4a2585 60%,#331a6b);
+  box-shadow:0 25px 70px #000a}
+.gate-moon{display:block;width:104px;height:86px;object-fit:contain;margin:0 auto 10px;
+  filter:drop-shadow(0 0 22px #ffbd3577)}
+.gate .eyebrow{margin:0;color:#f3d979;font-size:.68rem;letter-spacing:.22em;font-weight:900}
+.gate h1{font-family:Georgia,serif;font-size:clamp(1.7rem,5vw,2.3rem);margin:8px 0 12px;color:#fff}
+.gate p{color:#e9dcff;font-size:.94rem;line-height:1.6;margin:0 0 14px}
+.gate-reassure{background:#1d1046;border:1px solid #7d5bd1;border-radius:14px;padding:12px 14px}
+.gate-reassure strong{color:#9ff0d2}
+.gate-primary,.gate-secondary{display:inline-block;border-radius:99px;padding:12px 22px;font-weight:900;
+  font-family:inherit;font-size:.95rem;cursor:pointer;text-decoration:none;border:2px solid #e6bc47}
+.gate-primary{background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed}
+.gate-primary:hover{box-shadow:0 0 26px #ffc64b66}
+.gate-secondary{background:#fff8ed;color:#4c2588}
+.gate-trial{margin:6px 0 18px}
+.gate-trial small,.gate-buy small{display:block;margin-top:7px;color:#c9b6ea;font-size:.72rem}
+.gate-key{display:grid;gap:8px;justify-items:center;padding:16px 0;border-top:1px solid #6a4aa8;
+  border-bottom:1px solid #6a4aa8}
+.gate-key label{color:#f3d979;font-size:.72rem;font-weight:900;letter-spacing:.06em}
+.gate-key input{width:min(320px,90%);border:2px solid #8f74c8;border-radius:99px;padding:9px 16px;
+  background:#fff;color:#3a1f66;font-weight:700;text-align:center;font-size:.9rem}
+.gate-problem{margin:2px 0 0;color:#ffc2d3;font-size:.78rem}
+.gate-buy{padding:18px 0 6px}
+.gate-buy a{color:#ffe08a}
+.gate-buy .gate-primary{color:#fff8ed}
+.legal-links{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:16px 0 0;
+  padding-top:12px;border-top:1px solid #5b3d95}
+.legal-links a{color:#c9b6ea;font-size:.72rem;text-decoration:underline;text-underline-offset:3px}
+.legal-links a:hover{color:#ffe08a}
+
+/* ---- The free week, while it lasts --------------------------------------- */
+.trial-strip{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:0 auto 14px;
+  width:min(1100px,94%);padding:9px 16px;border:2px solid #eacb62;border-radius:99px;
+  background:linear-gradient(90deg,#2b1560,#57318e);color:#efe4ff;font-size:.8rem;font-weight:700}
+.trial-strip strong{color:#ffe08a}
+.trial-strip a{color:#fff8ed;background:#4c2588;border:2px solid #e6bc47;border-radius:99px;
+  padding:4px 14px;font-weight:900;text-decoration:none;font-size:.76rem}
+.trial-strip a:hover{box-shadow:0 0 18px #ffc64b66}
+
+/* ---- Carrying your own copy ---------------------------------------------- */
+footer .footer-dua{margin:0 0 10px}
+.footer-backup{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
+.footer-backup button,.footer-backup .restore{border:2px solid #8f74c8;border-radius:99px;padding:7px 16px;
+  background:#1d1046;color:#e8dcff;font-family:inherit;font-weight:800;font-size:.76rem;cursor:pointer}
+.footer-backup button:hover,.footer-backup .restore:hover{border-color:#eacb62;color:#fff8ed}
+.footer-backup .restore input{display:none}
+.footer-backup small{width:100%;color:#9ff0d2;font-size:.74rem}
+.footer-note{display:block;margin:10px auto 0;max-width:34rem;color:#a996cc;font-size:.72rem;line-height:1.5}
