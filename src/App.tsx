@@ -138,6 +138,29 @@ const listWords = (items:(string|number)[]) =>
 /** A celebration covers one Juz, several at once, or the whole Quran. */
 type Celebration = { khatm:boolean; juz:number[] };
 
+/**
+ * One piece of falling confetti.
+ *
+ * These values are worked out here rather than in CSS because `calc()` has no
+ * modulus operator — `calc(12px + (var(--i) % 4) * 4px)` is simply invalid, and
+ * a browser drops the whole declaration. That silently cost the confetti its
+ * `left`, so every piece stacked in the middle of the screen behind the card
+ * and nothing appeared to fall at all.
+ */
+const confettiPiece = (i:number,khatm:boolean):React.CSSProperties => khatm ? {
+  left:`${(i*29)%100}%`,
+  fontSize:`${14+(i%5)*5}px`,
+  color:`hsl(${38+(i%5)*5} ${74+(i%3)*8}% ${57+(i%4)*6}%)`,
+  animationDuration:`${(2.6+(i%7)*0.24).toFixed(2)}s`,
+  animationDelay:`${(i*-0.11).toFixed(2)}s`,
+} : {
+  left:`${(i*37)%100}%`,
+  fontSize:`${12+(i%4)*4}px`,
+  color:`hsl(${(i*31)%360} 80% 67%)`,
+  animationDuration:`${(2.2+(i%5)*0.28).toFixed(2)}s`,
+  animationDelay:`${(i*-0.13).toFixed(2)}s`,
+};
+
 function BlankBookIcon() {
   return <span className="blank-book" aria-hidden="true"><svg viewBox="0 0 64 64" fill="none"><rect x="15" y="8" width="34" height="48" rx="7" stroke="#bda2d8" strokeWidth="3" strokeDasharray="5 5"/><circle cx="32" cy="41" r="8.5" stroke="#cdb6de" strokeWidth="2.5"/><path d="M25 21h14" stroke="#d8c6e5" strokeWidth="3" strokeLinecap="round"/><path d="M27 28h10" stroke="#e0d2ea" strokeWidth="3" strokeLinecap="round"/></svg></span>;
 }
@@ -576,14 +599,16 @@ export default function Home() {
 
     {statusBook&&<div className="modal-backdrop" onMouseDown={()=>setStatusBook(null)}><section className="status-dialog" role="dialog" aria-modal="true" aria-label={`Revision status for ${statusBook.name}`} onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setStatusBook(null)}>×</button><img className="status-masjid" src={asset("status-art/status-masjid.png")} alt="Watercolor masjid"/><p className="eyebrow">HOW IS THIS SURAH GOING?</p><h2>{statusBook.name}</h2><p>Choose a gentle reminder for your journey.</p><div className="status-choices">{journeyOrder.map(status=><button key={status} className={saved.statuses[statusBook.key]===status?"selected":undefined} aria-pressed={saved.statuses[statusBook.key]===status} onClick={()=>chooseStatus(status)}><JourneyIcon status={status}/><b>{statusMeta[status].label}</b>{statusMeta[status].hint&&<small className="status-hint">{statusMeta[status].hint}</small>}</button>)}<button className="status-reset" onClick={unmarkBook}><BlankBookIcon/><b>I haven’t started this yet</b><small className="status-hint">Puts this book back to blank so it can be colored in again whenever you like.</small></button></div></section></div>}
 
-    {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{startLearning(`${juz.n}-${n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}<button className="unmark" onClick={()=>setNextUp(null)}>Not right now</button></section></div>})()}
+    {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{startLearning(`${juz.n}-${n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}
+      {/* Nothing was offered when the Juz is already finished, so declining it makes no sense. */}
+      <button className="unmark" onClick={()=>setNextUp(null)}>{remaining.length?"Not right now":"Done"}</button></section></div>})()}
 
     {celebrating&&(()=>{
       const {khatm,juz}=celebrating;
       // The whole Quran gets a fuller, gold fall. No sound, ever.
       const pieces=khatm?56:28;
       return <div className="celebration" role="dialog" aria-modal="true">
-        <div className={`confetti ${khatm?"grand":""}`} aria-hidden="true">{Array.from({length:pieces},(_,i)=><i key={i} style={{"--i":i} as React.CSSProperties}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div>
+        <div className={`confetti ${khatm?"grand":""}`} aria-hidden="true">{Array.from({length:pieces},(_,i)=><i key={i} style={confettiPiece(i,khatm)}>{i%3===0?"★":i%3===1?"✦":"●"}</i>)}</div>
         <div className="celebrate-card">
           <img className="glow-lantern" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/>
           <p className="eyebrow">{khatm?"THE WHOLE QURAN":"A BEAUTIFUL MILESTONE"}</p>
