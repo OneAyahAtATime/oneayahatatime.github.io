@@ -862,6 +862,15 @@ export default function Home() {
   const goHome=()=>{ setActiveGroup(null); setOpenRow(null); window.scrollTo({top:0,behavior:"smooth"}); };
 
   /**
+   * Which Juz the tour opens to show off the ayah-notes field. Whoever is
+   * already learning something gets shown their own real entry; a brand-new
+   * visitor with nothing started yet just sees Juz 1, where the empty state
+   * explains itself ("tap a book above, and it'll appear here").
+   */
+  const learningKey=Object.entries(saved.statuses||{}).find(([,status])=>status==="learning")?.[0];
+  const tourJuz=learningKey?Number(learningKey.split("-")[0]):1;
+
+  /**
    * Selecting a book for the first time always starts it at "I'm learning
    * this" — never at a further-along status. Previously, if that book was the
    * last uncolored one in its Juz, it jumped straight to "It's in my heart",
@@ -1158,7 +1167,7 @@ export default function Home() {
       return <div className={`certificate-screen ${khatm?"khatm":""}`} role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>{khatm?"Khatm al-Qur’an":"MashaAllah!"}</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>{khatm?"who has memorized all 30 Juz and":"for completing"}</span><h3>{khatm?`has become a ${honorific}`:`Juz ${certificate}`}</h3><p className="cert-date">Completed {shown}</p>{khatm&&<p className="cert-honorific no-print">Show this certificate as{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={honorific===option?"selected":undefined} aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}</p>}<div className="cert-dua">{khatm?"May Allah make the Quran the light of your heart and your companion always.":"May Allah fill your heart with the light of the Quran."}</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>;
     })()}
 
-    {tour&&<Tour onDone={()=>setTour(false)}/>}
+    {tour&&<Tour onDone={()=>setTour(false)} openJuz={openJuz} goHome={goHome} tourJuz={tourJuz}/>}
     <footer>
       <p className="footer-dua"><span>☾</span> May every page bring your heart closer to the Quran. <span>♥</span></p>
       <div className="footer-backup">
