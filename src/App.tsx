@@ -3,7 +3,7 @@ import {
   type Access, type Licence, accessState, buyHref, codeFingerprint, codeOk,
   hasAccess, ownsAnotherApp, unlockWithKey,
   readAccess, recheck, writeAccess, trialLeft,
-  PLANS, SUPPORT_EMAIL, TRIAL_DAYS,
+  PLANS, SUPPORT_EMAIL, TRIAL_DAYS, SPELLING_QUEST_URL, KIDS_CHECKLIST_URL,
 } from "./access";
 import {
   type RemoteReciter, type SyncState,
@@ -403,7 +403,10 @@ function SecondAppPrice() {
   };
 
   if(!open) return <small className="gate-upgrade">
-    Already have Spelling Quest or Muslim Kids Checklist? It’s <b>{PLANS.second.price}</b> —{" "}
+    Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a> or{" "}
+    {KIDS_CHECKLIST_URL
+      ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
+      : "Muslim Kids Checklist"}? It’s <b>{PLANS.second.price}</b> —{" "}
     <button type="button" className="linkish" onClick={()=>setOpen(true)}>show me</button>
   </small>;
 

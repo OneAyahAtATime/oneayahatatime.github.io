@@ -83,7 +83,7 @@ export const OTHER_APP_PRODUCT_IDS: string[] = [];
 
 export const SUPPORT_EMAIL = "oneayahtime@gmail.com";
 export const SPELLING_QUEST_URL = "https://spellingquest.github.io";
-export const KIDS_CHECKLIST_URL = "";
+export const KIDS_CHECKLIST_URL = "https://muslimkidschecklist.github.io";
 
 /* ---- codes handed out by hand ----------------------------------------------
    Family, testers, a teacher, somebody who wrote in — people who should have the
