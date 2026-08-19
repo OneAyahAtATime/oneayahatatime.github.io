@@ -374,7 +374,11 @@ function forgetProgress(id:string):void {
  * customer told "you don't own this" would rightly be furious.
  */
 /**
- * The lower price for people who already have one of our apps.
+ * The lower prices for people who already have one of our apps — the $25 price
+ * and the $89 all-three-apps price both work this way. **Neither is a bare buy
+ * link.** Kathryn's rule, 19 Aug: a key or code from another app has to check
+ * out first, for both prices, not just the $25 one — so someone can't reach a
+ * discount price without actually already owning something of ours.
  *
  * Deliberately **not** called an "upgrade" — nobody is upgrading anything. They
  * already bought something of ours and this is simply what it costs them.
@@ -384,13 +388,20 @@ function forgetProgress(id:string):void {
  * answers "no" because the network failed: an offline answer offers to email,
  * because a real customer told "you don't own this" would rightly be furious.
  */
-function SecondAppPrice() {
+function OwnershipGatedPrice({ plan, teaser, foundNote }: {
+  plan: "second" | "bundle";
+  /** The closed-state line, e.g. "Already have X or Y? It's $25 — [show me]" */
+  teaser: React.ReactNode;
+  /** Shown once ownership checks out, under the buy link. */
+  foundNote: React.ReactNode;
+}) {
   const [open,setOpen] = useState(false);
   const [typed,setTyped] = useState("");
   const [busy,setBusy] = useState(false);
   const [state,setState] = useState<"asking"|"yes"|"no"|"offline">("asking");
   const [product,setProduct] = useState("");
   const mailto = (why:string) => `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(why)}`;
+  const inputId = `other-key-${plan}`;
 
   const check = async () => {
     const value = typed.trim();
@@ -403,22 +414,19 @@ function SecondAppPrice() {
   };
 
   if(!open) return <small className="gate-upgrade">
-    Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a> or{" "}
-    {KIDS_CHECKLIST_URL
-      ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
-      : "Muslim Kids Checklist"}? It’s <b>{PLANS.second.price}</b> —{" "}
+    {teaser}{" "}
     <button type="button" className="linkish" onClick={()=>setOpen(true)}>show me</button>
   </small>;
 
   if(state==="yes") return <div className="gate-upgrade open">
     <p className="upgrade-yes">Found it{product?` — ${product}`:""}. Thank you for coming back.</p>
-    <a className="gate-primary" href={buyHref("second")}>Continue — {PLANS.second.price}</a>
-    <small>The same price every year, for as long as you stay.</small>
+    <a className="gate-primary" href={buyHref(plan)}>Continue — {PLANS[plan].price}</a>
+    <small>{foundNote}</small>
   </div>;
 
   return <div className="gate-upgrade open">
-    <label htmlFor="other-key">Paste your key or code from Spelling Quest or Muslim Kids Checklist</label>
-    <input id="other-key" value={typed} placeholder="Paste that key or code" autoComplete="off"
+    <label htmlFor={inputId}>Paste your key or code from Spelling Quest or Muslim Kids Checklist</label>
+    <input id={inputId} value={typed} placeholder="Paste that key or code" autoComplete="off"
       onChange={e=>{ setTyped(e.target.value); if(state!=="asking") setState("asking") }}
       onKeyDown={e=>{ if(e.key==="Enter") check() }}/>
     <button className="gate-secondary" disabled={busy} onClick={check}>{busy?"Checking…":"Check"}</button>
@@ -431,6 +439,31 @@ function SecondAppPrice() {
       <a href={mailto("One Ayah At A Time — I already have one of your apps")}>write to us</a>{" "}
       and we’ll send you the link.</p>}
   </div>;
+}
+
+/** The $25 price: already have Spelling Quest or Muslim Kids Checklist. */
+function SecondAppPrice() {
+  return <OwnershipGatedPrice
+    plan="second"
+    teaser={<>Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a> or{" "}
+      {KIDS_CHECKLIST_URL
+        ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
+        : "Muslim Kids Checklist"}? It’s <b>{PLANS.second.price}</b> —</>}
+    foundNote="The same price every year, for as long as you stay."
+  />;
+}
+
+/** The $89 price: already have one of our other apps, get all three. */
+function BundlePrice() {
+  return <OwnershipGatedPrice
+    plan="bundle"
+    teaser={<>Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a> or{" "}
+      {KIDS_CHECKLIST_URL
+        ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
+        : "Muslim Kids Checklist"}? Get all three — One Ayah At A Time, Spelling Quest and Muslim Kids
+      Checklist — for <b>{PLANS.bundle.price}</b> —</>}
+    foundNote="One key, all three apps, the same price every year for as long as you stay."
+  />;
 }
 
 function Gate({ state, onStartTrial, onUnlock, onCode }:{
@@ -509,9 +542,7 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
       <div className="gate-buy">
         <a className="gate-primary" href={buyHref("family")}>{state==="ended"?"Start again":"Keep it for a year"} — {PLANS.family.price} for the whole family</a>
         <SecondAppPrice/>
-        <small className="gate-bundle">Or all three of our apps — One Ayah At A Time, Spelling Quest
-          and Muslim Kids Checklist — for <b>{PLANS.bundle.price}</b>.{" "}
-          <a href={buyHref("bundle")}>See the three together</a></small>
+        <BundlePrice/>
         <small>12 months, renews on its own until you cancel. Cancel any time from the shop.</small>
       </div>
 

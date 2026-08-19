@@ -72,12 +72,14 @@ export const PLANS: Record<"family" | "second" | "bundle", Plan> = {
 
 /**
  * Gumroad product IDs for our OTHER apps — Spelling Quest and Muslim Kids
- * Checklist. A valid key from any of these earns the $25 price.
+ * Checklist. A valid key from any of these earns *either* discount price — the
+ * $25 second-app price and the $89 all-three-apps price both gate on it
+ * (Kathryn's rule, 19 Aug: neither is a bare buy link, both require proof).
  *
- * Empty for now: those two are not on Gumroad yet. While this list is empty the
- * $25 price is still reachable, by Spelling Quest **access code** (below), which
- * needs no shop at all. Add the product IDs when those apps move across and keys
- * start working too, with no other change.
+ * Empty for now: those two are not on Gumroad yet. While this list is empty
+ * both discount prices are still reachable, by Spelling Quest **access code**
+ * (below), which needs no shop at all. Add the product IDs when those apps
+ * move across and keys start working too, with no other change.
  */
 export const OTHER_APP_PRODUCT_IDS: string[] = [];
 
