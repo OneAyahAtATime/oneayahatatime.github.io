@@ -83,6 +83,25 @@ export const PLANS: Record<"family" | "second" | "bundle", Plan> = {
  */
 export const OTHER_APP_PRODUCT_IDS: string[] = [];
 
+/**
+ * Gumroad product IDs for Spelling Quest's and Muslim Kids Checklist's OWN
+ * "all three apps" bundle products. Each app sells its bundle from its own
+ * account — separate accounts can't share one product — but a bundle bought
+ * from *any one* of the three shops has to unlock *all three* apps, or a
+ * paying customer opens the wrong app and simply cannot get in, with no error
+ * that explains why (Kathryn's rule, 19 Aug, reconciling Spelling Quest's and
+ * this app's runbooks, which had drifted onto two different bundle shapes).
+ *
+ * Distinct from `OTHER_APP_PRODUCT_IDS` above: that list proves *ownership*
+ * of any tier of another app, to unlock the $25/$89 checkout link here. This
+ * list is narrower — only the other apps' *bundle* products — and is checked
+ * for actually unlocking this app, in `unlockWithKey`.
+ *
+ * Empty for now: neither app is on Gumroad yet. Add each one's bundle product
+ * ID here once it exists, with no other change needed.
+ */
+export const OTHER_APP_BUNDLE_PRODUCT_IDS: string[] = [];
+
 export const SUPPORT_EMAIL = "oneayahtime@gmail.com";
 export const SPELLING_QUEST_URL = "https://spellingquest.github.io";
 export const KIDS_CHECKLIST_URL = "https://muslimkidschecklist.github.io";
@@ -254,8 +273,15 @@ export function verifyKey(productId: string, key: string, countIt = false): Prom
 const isFinished = (p: GumroadPurchase | undefined) =>
   !!p && (!!p.refunded || !!p.disputed || !!p.chargebacked || !!p.subscription_ended_at);
 
-/** Every product of ours a key could plausibly have come from. */
-const ourProducts = () => Object.values(PLANS).map(p => p.productId).filter(Boolean);
+/**
+ * Every product a key could plausibly have come from: our own three, plus
+ * the other two apps' "all three apps" bundle — since buying the bundle
+ * anywhere has to work everywhere.
+ */
+const ourProducts = () => [
+  ...Object.values(PLANS).map(p => p.productId),
+  ...OTHER_APP_BUNDLE_PRODUCT_IDS,
+].filter(Boolean);
 
 export type Unlocked =
   | { ok: true; productId: string }

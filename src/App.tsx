@@ -413,10 +413,12 @@ function OwnershipGatedPrice({ plan, teaser, foundNote }: {
     setState(result.offline ? "offline" : result.owns ? "yes" : "no");
   };
 
-  if(!open) return <small className="gate-upgrade">
-    {teaser}{" "}
-    <button type="button" className="linkish" onClick={()=>setOpen(true)}>show me</button>
-  </small>;
+  if(!open) return <div className="gate-upgrade">
+    <small>{teaser}</small>
+    <button type="button" className="gate-primary" onClick={()=>setOpen(true)}>
+      Buy — {PLANS[plan].price}
+    </button>
+  </div>;
 
   if(state==="yes") return <div className="gate-upgrade open">
     <p className="upgrade-yes">Found it{product?` — ${product}`:""}. Thank you for coming back.</p>
@@ -448,7 +450,7 @@ function SecondAppPrice() {
     teaser={<>Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a> or{" "}
       {KIDS_CHECKLIST_URL
         ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
-        : "Muslim Kids Checklist"}? It’s <b>{PLANS.second.price}</b> —</>}
+        : "Muslim Kids Checklist"}? It’s <b>{PLANS.second.price}</b>.</>}
     foundNote="The same price every year, for as long as you stay."
   />;
 }
@@ -461,7 +463,7 @@ function BundlePrice() {
       {KIDS_CHECKLIST_URL
         ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
         : "Muslim Kids Checklist"}? Get all three — One Ayah At A Time, Spelling Quest and Muslim Kids
-      Checklist — for <b>{PLANS.bundle.price}</b> —</>}
+      Checklist — for <b>{PLANS.bundle.price}</b>.</>}
     foundNote="One key, all three apps, the same price every year for as long as you stay."
   />;
 }
