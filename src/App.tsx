@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type Access, type Licence, accessState, activateKey, buyHref, codeFingerprint, codeOk,
-  deactivateKey, hasAccess, looksLikeKey, ownsAnotherApp,
+  type Access, type Licence, accessState, buyHref, codeFingerprint, codeOk,
+  hasAccess, ownsAnotherApp, unlockWithKey,
   readAccess, recheck, writeAccess, trialLeft,
-  PRICE_LINE, SUPPORT_EMAIL, TRIAL_DAYS, UPGRADE_LINE, UPGRADE_PRICE,
+  PLANS, SUPPORT_EMAIL, TRIAL_DAYS,
 } from "./access";
 import {
   type RemoteReciter, type SyncState,
@@ -365,7 +365,7 @@ function forgetProgress(id:string):void {
  *
  * The $25 price is real and permanent, not a first-year discount, so it is worth
  * a moment's checking. Rather than take somebody's word for it, the app asks for
- * the key from that other purchase and validates it with Lemon Squeezy.
+ * the key or code from that other purchase and checks it.
  *
  * Two things this deliberately does *not* do. It does not make anybody type a
  * key before they can see that a cheaper price exists — the price is named
@@ -373,16 +373,28 @@ function forgetProgress(id:string):void {
  * the network failed: an offline answer offers to email instead, because a real
  * customer told "you don't own this" would rightly be furious.
  */
-function UpgradeOffer() {
+/**
+ * The lower price for people who already have one of our apps.
+ *
+ * Deliberately **not** called an "upgrade" — nobody is upgrading anything. They
+ * already bought something of ours and this is simply what it costs them.
+ *
+ * The price is named before anything is asked. Only opening it asks for proof,
+ * so nobody has to type a key to discover a cheaper price exists. And it never
+ * answers "no" because the network failed: an offline answer offers to email,
+ * because a real customer told "you don't own this" would rightly be furious.
+ */
+function SecondAppPrice() {
   const [open,setOpen] = useState(false);
   const [typed,setTyped] = useState("");
   const [busy,setBusy] = useState(false);
   const [state,setState] = useState<"asking"|"yes"|"no"|"offline">("asking");
   const [product,setProduct] = useState("");
+  const mailto = (why:string) => `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(why)}`;
 
   const check = async () => {
     const value = typed.trim();
-    if(!looksLikeKey(value)) { setState("no"); return; }
+    if(!value) return;
     setBusy(true);
     const result = await ownsAnotherApp(value);
     setBusy(false);
@@ -391,27 +403,30 @@ function UpgradeOffer() {
   };
 
   if(!open) return <small className="gate-upgrade">
-    {UPGRADE_LINE} — <button type="button" className="linkish" onClick={()=>setOpen(true)}>get that price</button>
+    Already have Spelling Quest or Muslim Kids Checklist? It’s <b>{PLANS.second.price}</b> —{" "}
+    <button type="button" className="linkish" onClick={()=>setOpen(true)}>show me</button>
   </small>;
 
   if(state==="yes") return <div className="gate-upgrade open">
     <p className="upgrade-yes">Found it{product?` — ${product}`:""}. Thank you for coming back.</p>
-    <a className="gate-primary" href={buyHref(true)}>Continue — {UPGRADE_PRICE}</a>
+    <a className="gate-primary" href={buyHref("second")}>Continue — {PLANS.second.price}</a>
+    <small>The same price every year, for as long as you stay.</small>
   </div>;
 
   return <div className="gate-upgrade open">
-    <label htmlFor="other-key">Paste your key from Spelling Quest or Muslim Kids Checklist</label>
-    <input id="other-key" value={typed} placeholder="Paste that key" autoComplete="off"
+    <label htmlFor="other-key">Paste your key or code from Spelling Quest or Muslim Kids Checklist</label>
+    <input id="other-key" value={typed} placeholder="Paste that key or code" autoComplete="off"
       onChange={e=>{ setTyped(e.target.value); if(state!=="asking") setState("asking") }}
       onKeyDown={e=>{ if(e.key==="Enter") check() }}/>
     <button className="gate-secondary" disabled={busy} onClick={check}>{busy?"Checking…":"Check"}</button>
     <small>It is only checked, never saved, and it costs that key nothing.</small>
-    {state==="no"&&<p className="gate-problem" role="alert">We couldn’t match that key. If you own one
-      of them and this looks wrong, <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("One Ayah — upgrade")}`}>write
-      to us</a> and we’ll sort it out. <em>Muslim Kids Checklist isn’t on sale yet, so write to us for that one.</em></p>}
-    {state==="offline"&&<p className="gate-problem" role="alert">We couldn’t reach the shop just now —
-      that’s us, not you. Try again in a moment, or <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("One Ayah — upgrade")}`}>write
-      to us</a> and we’ll send you the link.</p>}
+    {state==="no"&&<p className="gate-problem" role="alert">We couldn’t match that. If you do have one
+      of them, <a href={mailto("One Ayah At A Time — I already have one of your apps")}>write to us</a>{" "}
+      and we’ll send you the link ourselves.</p>}
+    {state==="offline"&&<p className="gate-problem" role="alert">We couldn’t check just now — that’s
+      us, not you. Try again in a moment, or{" "}
+      <a href={mailto("One Ayah At A Time — I already have one of your apps")}>write to us</a>{" "}
+      and we’ll send you the link.</p>}
   </div>;
 }
 
@@ -430,17 +445,22 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
     // A code we handed out by hand. Checked first, and entirely on the device —
     // there is nothing behind it to ask, so it works with no connection at all.
     if(codeOk(value)) { onCode(codeFingerprint(value)); return; }
-    if(!looksLikeKey(value)) { setProblem("That doesn’t look like a key or a code — check the email you were sent."); return; }
+    if(!value) return;
     setBusy(true); setProblem("");
-    try {
-      const res = await activateKey(value);
-      if(res?.activated) onUnlock({ key:value, instance:res.instance?.id ?? null, checked:Date.now(), dead:false });
-      else { setProblem("That key didn’t work. Check it, or email us and we’ll sort it out."); setBusy(false); }
-    } catch {
-      // No internet, or the browser blocked the call. Let them in and confirm later
+    const found = await unlockWithKey(value);
+    if(found.ok) { onUnlock({ key:value, productId:found.productId, checked:Date.now(), dead:false }); return; }
+    if(found.offline) {
+      // No internet, or the shop is unreachable. Let them in and confirm later
       // rather than leave someone who has paid staring at a locked door.
-      onUnlock({ key:value, instance:null, checked:0, dead:false, pending:true });
+      onUnlock({ key:value, productId:"", checked:0, dead:false, pending:true });
+      return;
     }
+    setProblem(found.noShopYet
+      ? "The shop isn’t open just yet — so there are no keys to check against. If you were sent a code, that works now. Otherwise please email us."
+      : found.finished
+      ? "That key belongs to a purchase that has ended. If that’s a surprise, email us and we’ll sort it out."
+      : "That key didn’t work. Check it, or email us and we’ll sort it out.");
+    setBusy(false);
   };
 
   const heading = state==="ended" ? "Your subscription has ended"
@@ -458,10 +478,10 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
             certificate is still saved on this device, exactly as you left it. It comes straight back
             when the subscription starts again.</p>
           <p>The usual reason is a card that expired or a payment that didn’t go through — check your
-            email from Lemon Squeezy. If you think this is a mistake, email us and we will fix it.</p></>
+            email from Gumroad. If you think this is a mistake, email us and we will fix it.</p></>
         : state==="trial-over"
-        ? <p>We hope it was a good week. Carry on for <strong>{PRICE_LINE}</strong> — one payment for
-            the whole household, however many reciters you add.</p>
+        ? <p>We hope it was a good week. Carry on for <strong>{PLANS.family.price}</strong> — one
+            payment for the whole household, however many reciters you add.</p>
         : <><p>Memorizing the Quran is a long road, and it is easy to lose sight of how far you have
             already come. This is somewhere to see it — a shelf of beautiful books, one for every
             surah, filling in as they settle into your heart.</p>
@@ -484,8 +504,11 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
       </div>
 
       <div className="gate-buy">
-        <a className="gate-primary" href={buyHref()}>{state==="ended"?"Start again":"Keep it for a year"} — {PRICE_LINE}</a>
-        <UpgradeOffer/>
+        <a className="gate-primary" href={buyHref("family")}>{state==="ended"?"Start again":"Keep it for a year"} — {PLANS.family.price} for the whole family</a>
+        <SecondAppPrice/>
+        <small className="gate-bundle">Or all three of our apps — One Ayah At A Time, Spelling Quest
+          and Muslim Kids Checklist — for <b>{PLANS.bundle.price}</b>.{" "}
+          <a href={buyHref("bundle")}>See the three together</a></small>
         <small>12 months, renews on its own until you cancel. Cancel any time from the shop.</small>
       </div>
 
@@ -569,6 +592,14 @@ export default function Home() {
   const syncing = useRef(false);
   const syncTimer = useRef<number|undefined>(undefined);
   const firstSync = useRef(true);
+  /** What the sync itself last wrote into `saved`, so it can tell its own
+      handiwork from a person actually marking a book. */
+  const syncWrote = useRef("");
+  /* `saved` read through a ref, not a dependency. Putting it in syncNow's
+     dependency list would rebuild syncNow on every keystroke, and the effect
+     that runs syncNow when it changes would then fire a sync on every one. */
+  const savedRef = useRef(saved);
+  savedRef.current = saved;
 
   /** Fold one device's record into another. Newer decisions win, per book. */
   const merge = (mine:Saved, theirs:RemoteReciter):Saved => {
@@ -660,7 +691,17 @@ export default function Home() {
       }
 
       setReciters(list);
-      if(list.some(r=>r.id===activeId)) setSaved(readProgress(activeId,list.find(r=>r.id===activeId)!.name));
+      if(list.some(r=>r.id===activeId)) {
+        /* Only disturb the screen if something actually came back different.
+           Handing React a fresh object every time would look identical to the
+           person and identical to the code — but `saved` changes identity, the
+           effect below sees a save, and schedules another sync. That is a loop
+           with no exit: a pull and a push every two and a half seconds, for ever,
+           for every family. It showed up as a footer that would not sit still. */
+        const fresh = readProgress(activeId,list.find(r=>r.id===activeId)!.name);
+        const asText = JSON.stringify(fresh);
+        if(asText !== JSON.stringify(savedRef.current)) { syncWrote.current = asText; setSaved(fresh) }
+      }
       else if(list.length) setActiveId(list[0].id);
       setSyncLine("ok");
     } catch {
@@ -684,7 +725,9 @@ export default function Home() {
   useEffect(()=>{
     if(loadedId!==activeId) return;
     // Every save nudges a sync, held back a moment so that racing through a
-    // page of books doesn't fire one for each tap.
+    // page of books doesn't fire one for each tap. A save the sync itself just
+    // made is not a reason to sync again — see the note where syncWrote is set.
+    if(JSON.stringify(saved) === syncWrote.current) return;
     window.clearTimeout(syncTimer.current);
     syncTimer.current = window.setTimeout(()=>{ syncNow() },2500);
     return ()=>window.clearTimeout(syncTimer.current);
@@ -904,10 +947,8 @@ export default function Home() {
    */
   const [signingOut,setSigningOut] = useState(false);
   const signOut = () => {
-    const licence = access.licence;
-    // Hand the activation back if there is one. Best effort, and never waited
-    // for: the activation limit is unlimited, so this is only good manners.
-    if(licence?.key && licence.instance) deactivateKey(licence.key,licence.instance).catch(()=>{});
+    // There is nothing to tell the shop: Gumroad has no per-device activation to
+    // hand back, so signing out is entirely a matter for this device.
     writeAccess({});
     setAccess({});
     setSigningOut(false);
@@ -943,7 +984,7 @@ export default function Home() {
         <span>☾</span>
         <strong>{daysLeft} {daysLeft===1?"day":"days"} left</strong> of your free week — everything is
         unlocked, certificates included.
-        <a href={buyHref()}>Get it for {PRICE_LINE.replace(" for the whole family","")}</a>
+        <a href={buyHref("family")}>Get it for {PLANS.family.price}</a>
       </p>}
       <header className={`app-titlebar ${onHome?"":"compact"}`}>
         <div className="app-brand"><span className="brand-moon">☾</span><div><p>ONE AYAH AT A TIME</p><h1>My Quran <span>Memorization Tracker</span></h1></div></div>

@@ -374,7 +374,11 @@ footer .footer-dua{margin:0 0 10px}
 .footer-backup button:hover,.footer-backup .restore:hover{border-color:#eacb62;color:#fff8ed}
 .footer-backup .restore input{display:none}
 .footer-backup small{width:100%;color:#9ff0d2;font-size:.74rem}
-.footer-note{display:block;margin:10px auto 0;max-width:34rem;color:#a996cc;font-size:.72rem;line-height:1.5}
+/* The wording here changes as the sync goes about its business. Two lines of
+   room are held whatever it says, so a shorter message can never pull the page
+   up under somebody's finger. */
+.footer-note{display:block;margin:10px auto 0;max-width:34rem;min-height:2.2rem;
+  color:#a996cc;font-size:.72rem;line-height:1.5}
 
 /* Signing a device out. Quieter than the buttons above it, because it is rarely
    the thing somebody came here to do — but never hidden, because when it *is*
