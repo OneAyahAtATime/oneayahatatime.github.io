@@ -105,11 +105,25 @@ export default function Tour({ onDone, openJuz, goHome, tourJuz }: {
   const finish = () => { markTourSeen(); goHome(); onDone(); };
   const next = () => (i + 1 < steps.length ? setI(i + 1) : finish());
 
-  // The card goes under the highlight when there is room, otherwise above it.
-  const below = box ? box.bottom + 190 < window.innerHeight : true;
-  const cardStyle: React.CSSProperties = box
-    ? { top: below ? box.bottom + 14 : undefined, bottom: below ? undefined : window.innerHeight - box.top + 14 }
-    : {};
+  /**
+   * The card goes under the highlight when there's room, otherwise above it —
+   * but a highlighted *section* (".juz-overview" is 30 tiles tall) can easily
+   * be taller than the window itself, in which case neither "below" nor
+   * "above" leaves anywhere real to put it, and the old bottom-anchored math
+   * for "above" had nothing stopping it from landing the card partly above
+   * row 0 of the page, invisible above the fold. Always clamped into the
+   * visible window now, on a rough card-height guess — a little off-center
+   * from the highlight beats not being on screen at all.
+   */
+  const CARD_ESTIMATE = 240;
+  const MARGIN = 12;
+  let cardTop: number | null = null;
+  if (box) {
+    const below = box.bottom + 14 + CARD_ESTIMATE < window.innerHeight;
+    const raw = below ? box.bottom + 14 : box.top - CARD_ESTIMATE - 14;
+    cardTop = Math.max(MARGIN, Math.min(raw, window.innerHeight - CARD_ESTIMATE - MARGIN));
+  }
+  const cardStyle: React.CSSProperties = cardTop === null ? {} : { top: cardTop };
 
   return <div className="tour" role="dialog" aria-modal="true" aria-label="A quick look around">
     {box && <div className="tour-hole" style={{
