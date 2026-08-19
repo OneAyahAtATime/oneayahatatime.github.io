@@ -49,22 +49,22 @@ export type Plan = { productId: string; checkout: string; price: string; label: 
 export const PLANS: Record<"family" | "second" | "bundle", Plan> = {
   /** The ordinary price: One Ayah At A Time on its own. */
   family: {
-    productId: "",
-    checkout: "",
+    productId: "5K-rSAFj42TdAX3vlGNQsQ==",
+    checkout: "https://oneayahtime.gumroad.com/l/vcwkuz",
     price: "$40 a year",
     label: "One Ayah At A Time, for the whole family",
   },
   /** For people who already have Spelling Quest or Muslim Kids Checklist. */
   second: {
-    productId: "",
-    checkout: "",
+    productId: "6TLtDTxe19Rgypj9kASU1A==",
+    checkout: "https://oneayahtime.gumroad.com/l/bumvs",
     price: "$25 a year",
     label: "One Ayah At A Time, for readers who already have one of our apps",
   },
   /** All three apps together. */
   bundle: {
-    productId: "",
-    checkout: "",
+    productId: "wDMOSJIqK40DaP5STkK7Pw==",
+    checkout: "https://oneayahtime.gumroad.com/l/auwpw",
     price: "$89 a year",
     label: "All three apps — One Ayah At A Time, Spelling Quest and Muslim Kids Checklist",
   },
