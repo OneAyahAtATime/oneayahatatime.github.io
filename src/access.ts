@@ -44,8 +44,8 @@ export const RECHECK_DAYS = 7;
    to an email, so nothing on the page is ever broken — just not yet buyable.
 
    20 Aug 2026: a fourth plan, `addTwo` ($49), joined the original three — see
-   its own note below. It needs its own Gumroad product the same way the first
-   three did.
+   its own note below. Its Gumroad product was created and wired in the same
+   day.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export type Plan = { productId: string; checkout: string; price: string; label: string };
@@ -69,11 +69,11 @@ export const PLANS: Record<"family" | "second" | "addTwo" | "bundle", Plan> = {
   /** Also for people who already have one of the other two apps, but this one
    *  adds the *two* they're missing — this app plus whichever of Spelling
    *  Quest / Muslim Kids Checklist they don't have — for less than buying the
-   *  bundle from scratch. New 20 Aug 2026: needs its own Gumroad product; its
-   *  buy button falls back to email until productId/checkout are filled in. */
+   *  bundle from scratch. New 20 Aug 2026: its own Gumroad product, wired in
+   *  the same day. */
   addTwo: {
-    productId: "",
-    checkout: "",
+    productId: "Tdm6Qct7EyMbAC36l6-zMg==",
+    checkout: "https://oneayahtime.gumroad.com/l/gieimmq",
     price: "$49 a year",
     label: "One Ayah At A Time plus whichever other app you're missing, for readers who already have one of our apps",
   },
