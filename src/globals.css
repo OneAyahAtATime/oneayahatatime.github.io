@@ -278,7 +278,7 @@
   background:linear-gradient(135deg,#251060,#57318e);box-shadow:0 10px 26px #0005}
 .bulk-bar>p{margin:0 0 10px;text-align:center;color:#efe4ff;font-size:.82rem}
 .bulk-bar strong{color:#ffe08a}
-.bulk-choices{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.bulk-choices{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 .bulk-choices button{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;
   padding:6px 10px;border:2px solid #cbb4dc;border-radius:13px;background:#fff8ed;color:var(--ink);
   font-family:inherit;cursor:pointer}

@@ -61,12 +61,12 @@ const colorOptions = [
 ];
 const colors = colorOptions.map(option=>option.value);
 const artForJuz = (n:number) => asset(n<=6?"juz-1-6.png":n<=13?"juz-7-13.png":n<=18?"juz-14-18.png":n<=22?"juz-19-22.png":n<=25?"juz-23-25.png":n<=27?"juz-26-27.png":n<=29?"juz-28-29.png":"juz-30-five-shelves-v9.png");
-const cropForJuz = (n:number) => n<=6?82.8:n<=13?80:n<=18?82.5:n<=22?81.5:n<=25?80:n<=27?78:n<=29?84.5:87.5;
+const cropForJuz = (n:number) => n<=6?84.1:n<=13?82.1:n<=18?82.5:n<=22?81.5:n<=25?80:n<=27?78:n<=29?84.5:87.5;
 type Rect = [number,number,number,number];
 const row = (count:number,y:number,x1:number,x2:number,h:number):Rect[] => Array.from({length:count},(_,i)=>{const gap=1.1,w=(x2-x1-gap*(count-1))/count;return [x1+i*(w+gap),y,w,h]});
 const bookRects:Record<number,Rect[]> = {
-  1:[[29,13,20,10],[52,13,20,10]],2:[[28,27,44,8]],3:[[31,39,39,9]],4:[[31,52,39,8]],5:[[29,64,43,8]],6:[[31,75,40,8]],
-  7:[[41,9,18,10]],8:[[41,21,18,9]],9:[[41,32,18,9]],10:[[41,42,18,8]],11:[[32,51,17,9],[52,51,18,9]],12:[[41,61,18,9]],13:[[32,71,17,8],[52,71,18,8]],
+  1:[[29,15.28,20,10],[52,15.28,20,10]],2:[[28,28.24,44,8]],3:[[31,40.3,39,9]],4:[[31,53.3,39,8]],5:[[29,65.43,43,8]],6:[[31,76.24,40,8]],
+  7:[[41,13.75,18,10]],8:[[41,24.78,18,9]],9:[[41,35.84,18,9]],10:[[41,47.08,18,8]],11:[[32,55.82,17,9],[52,55.82,18,9]],12:[[41,64.65,18,9]],13:[[32,74.84,17,8],[52,74.84,18,8]],
   14:[[31,14,19,11],[52,14,18,11]],15:[[31,28,19,11],[52,28,18,11]],16:[[31,42,19,11],[52,42,18,11]],17:[[31,56,19,11],[52,56,18,11]],18:[[18,71,20,10],[41,71,19,10],[63,71,20,10]],
   19:[[32,18,17,13],[53,18,17,13]],20:[[31,36,18,12],[53,36,18,12]],21:[[15,53,15,12],[33,53,14,12],[50,53,16,12],[69,53,16,12]],22:[[29,68,18,13],[55,68,17,13]],
   23:[[15,20,16,17],[33,20,16,17],[51,20,16,17],[69,20,16,17]],24:[[29,44,19,15],[51,44,19,15]],25:[[14,65,16,14],[33,65,15,14],[51,65,16,14],[70,65,16,14]],
@@ -79,7 +79,7 @@ const fullBookRect = (juz:number,r:Rect):Rect => {
   return [Math.max(0,r[0]-xPad),Math.max(0,r[1]-topPad),Math.min(100-r[0]+xPad,r[2]+xPad*2),r[3]+topPad+bottomPad];
 };
 const targetedPaintRects:Record<string,Rect> = {
-  "5-4":[27.6,62.9,45.1,10],"11-10":[31,50.2,19.2,10.2],"13-13":[31,70.2,19.2,9.7],"13-14":[51.2,70.2,20.8,9.7],
+  "5-4":[27.6,64.33,45.1,10],"11-10":[31,55.02,19.2,10.2],"13-13":[31,74.04,19.2,9.7],"13-14":[51.2,74.04,20.8,9.7],
   "16-19":[30.7,43.1,19.6,10.9],"16-20":[51.7,43.1,18.6,10.9],
   "17-21":[30.7,57.3,19.6,10.9],"17-22":[51.7,57.3,18.6,10.9],"21-31":[32.2,52.4,16.3,13.2],"21-32":[49.3,52.4,18.1,13.2],
   "22-34":[28.3,68.9,19.4,12.5],"22-35":[53.2,68.9,19.4,12.5],"23-36":[15,19.3,16.9,18],"25-43":[32.1,64.4,16.5,15.1],
@@ -87,10 +87,10 @@ const targetedPaintRects:Record<string,Rect> = {
   "29-67":[9.8,54.5,12.5,13.9],"29-68":[22.7,54.5,13.1,13.9],"29-69":[36.9,54.5,13,13.9],"29-70":[51.2,54.5,12.8,13.9],"29-71":[65.2,54.5,12.6,13.9],"29-73":[13.8,69.5,14.6,14.1],
 };
 const iconRects:Record<string,Rect> = {
-  "1-1":[42.76,18.84,4.1,2.73],"1-2":[64.88,18.84,4.1,2.73],"2-2":[65.17,31.29,4.1,2.73],"3-3":[62.96,43.83,4.1,2.73],
-  "4-4":[62.47,56.29,4.1,2.73],"5-4":[61.66,68.26,4.1,2.73],"6-5":[58.71,79.26,4.1,2.73],"7-6":[53.75,15.14,3.22,2.15],
-  "8-7":[53.45,26.54,3.22,2.15],"9-8":[52.09,37.54,3.22,2.15],"10-9":[52.68,46.88,3.22,2.15],"11-10":[44.41,56.54,3.22,2.15],
-  "11-11":[64.42,56.54,3.22,2.15],"12-12":[53.26,66.5,3.22,2.15],"13-13":[44.41,75.88,3.22,2.15],"13-14":[65.6,76.07,3.22,2.15],
+  "1-1":[42.76,21.12,4.1,2.73],"1-2":[64.88,21.12,4.1,2.73],"2-2":[65.17,32.53,4.1,2.73],"3-3":[62.96,45.13,4.1,2.73],
+  "4-4":[62.47,57.59,4.1,2.73],"5-4":[61.66,69.69,4.1,2.73],"6-5":[58.71,80.5,4.1,2.73],"7-6":[53.75,19.89,3.22,2.15],
+  "8-7":[53.45,30.32,3.22,2.15],"9-8":[52.09,41.38,3.22,2.15],"10-9":[52.68,51.96,3.22,2.15],"11-10":[44.41,61.36,3.22,2.15],
+  "11-11":[64.42,61.36,3.22,2.15],"12-12":[53.26,70.15,3.22,2.15],"13-13":[44.41,79.72,3.22,2.15],"13-14":[65.6,79.91,3.22,2.15],
   "14-15":[43.37,20.51,3.81,2.54],"14-16":[64.03,20.51,3.81,2.54],"15-17":[44.06,34.51,3.81,2.54],"15-18":[64.72,34.51,3.81,2.54],
   "16-19":[44.54,48.51,3.81,2.54],"16-20":[65.01,48.51,3.81,2.54],"17-21":[43.76,63.35,3.81,2.54],"17-22":[65.01,62.51,3.81,2.54],
   "18-23":[32.34,77.17,3.81,2.54],"18-24":[54.74,76.97,3.81,2.54],"18-25":[76.82,77.17,3.81,2.54],"19-26":[44.7,25.86,2.93,1.95],
@@ -943,6 +943,23 @@ export default function Home() {
   const togglePicked=(key:string)=>setPicked(p=>p.includes(key)?p.filter(k=>k!==key):[...p,key]);
   const leaveBulk=()=>{ setBulk(false); setPicked([]); };
   /**
+   * The bulk equivalent of unmarkBook — puts every picked book back to
+   * blank in one go. Exists so an accidental multi-mark (wrong profile,
+   * fat-fingered "pick all") has a way back that doesn't mean tapping each
+   * book individually.
+   */
+  const unmarkPicked=()=>{
+    if(!picked.length) return;
+    const colored={...saved.colored},statuses={...saved.statuses},dates={...saved.dates};
+    const affectedJuz=new Set(picked.map(key=>Number(key.split("-")[0])));
+    for(const key of picked) { delete colored[key]; delete statuses[key]; }
+    for(const n of affectedJuz) delete dates[n];
+    delete dates[KHATM_KEY];
+    setSaved(s=>({...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,picked)}));
+    setBulk(false);
+    setPicked([]);
+  };
+  /**
    * Take a book back to blank. The stamp is still moved forward, so that the
    * undo travels to the family's other devices instead of being quietly
    * reversed by whichever of them last saw the book marked.
@@ -1125,7 +1142,7 @@ export default function Home() {
           <div className="tools"><span>Book color</span>{colorOptions.map(option=><button key={option.value} aria-label={`Choose ${option.label}`} title={option.label} aria-pressed={color===option.value} className={`swatch ${option.background?"blend-swatch":""}`} onClick={()=>setColor(option.value)} style={{background:option.background||option.value}}/>)}</div>
         </div>
         <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateAyahs={updateAyahs} openStatus={setStatusBook} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}
-          bulk={bulk} picked={picked} onPick={togglePicked} onPickAll={setPicked} onApply={applyToPicked} onStartBulk={()=>setBulk(true)} onLeaveBulk={leaveBulk}/>
+          bulk={bulk} picked={picked} onPick={togglePicked} onPickAll={setPicked} onApply={applyToPicked} onUnmark={unmarkPicked} onStartBulk={()=>setBulk(true)} onLeaveBulk={leaveBulk}/>
       </>}
     </section>
 
@@ -1237,7 +1254,7 @@ function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
   </section>;
 }
 
-function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,openCertificate,openRow,setOpenRow,bulk,picked,onPick,onPickAll,onApply,onStartBulk,onLeaveBulk}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateAyahs:(key:string,value:string)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void;bulk:boolean;picked:string[];onPick:(key:string)=>void;onPickAll:(keys:string[])=>void;onApply:(status:RevisionStatus)=>void;onStartBulk:()=>void;onLeaveBulk:()=>void}) {
+function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,openCertificate,openRow,setOpenRow,bulk,picked,onPick,onPickAll,onApply,onUnmark,onStartBulk,onLeaveBulk}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateAyahs:(key:string,value:string)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void;bulk:boolean;picked:string[];onPick:(key:string)=>void;onPickAll:(keys:string[])=>void;onApply:(status:RevisionStatus)=>void;onUnmark:()=>void;onStartBulk:()=>void;onLeaveBulk:()=>void}) {
   const first=juzs[0],crop=cropForJuz(first.n),groupLabel=juzs.length===1?`Juz ${first.n}`:`Juz ${first.n}–${juzs[juzs.length-1].n}`;
   const pageKeys=juzs.flatMap(juz=>juz.surahs.map(n=>`${juz.n}-${n}`));
   const allPicked=picked.length===pageKeys.length&&pageKeys.every(k=>picked.includes(k));
@@ -1260,6 +1277,9 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
                 <button key={status} disabled={!picked.length} onClick={()=>onApply(status)}>
                   <JourneyIcon status={status}/><b>{statusMeta[status].label}</b>
                 </button>)}
+              <button disabled={!picked.length} onClick={onUnmark}>
+                <BlankBookIcon/><b>I haven’t started this yet</b>
+              </button>
             </div>
             <div className="bulk-tools">
               <button type="button" onClick={()=>onPickAll(allPicked?[]:pageKeys)}>
