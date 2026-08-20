@@ -352,6 +352,12 @@
 .gate-buy{padding:18px 0 6px}
 .gate-buy a{color:#ffe08a}
 .gate-buy .gate-primary{color:#fff8ed}
+.gate-combo{margin-top:9px}
+.gate-combo>small{display:block;color:#c9b6ea;font-size:.72rem}
+.gate-combo-row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.gate-combo-row>.gate-upgrade{margin-top:0;flex:1 1 170px;display:flex;flex-direction:column;align-items:center}
+.gate-combo-row>.gate-upgrade.open{flex:1 1 100%}
+.gate-bundle{margin-top:9px}
 .legal-links{display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin:16px 0 0;
   padding-top:12px;border-top:1px solid #5b3d95}
 .legal-links a{color:#c9b6ea;font-size:.72rem;text-decoration:underline;text-underline-offset:3px}

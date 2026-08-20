@@ -32,21 +32,25 @@ export const RECHECK_DAYS = 7;
 /* ═══════════════════════════════════════════════════════════════════════════
    ⬇ THE ONLY BLOCK THAT NEEDS FILLING IN ⬇
 
-   Create three products in Gumroad, then paste each one's **product ID** and
+   Create the products in Gumroad, then paste each one's **product ID** and
    its **checkout URL** here. Both are on the product's page in Gumroad:
 
      • the product ID is under Settings, near "Generate a unique licence key
-       per sale" — which must be switched ON for all three
+       per sale" — which must be switched ON for all of them
      • the checkout URL is the share link, of the form
        https://<yourname>.gumroad.com/l/<something>
 
    Until a product's two fields are filled in, its buy button quietly falls back
    to an email, so nothing on the page is ever broken — just not yet buyable.
+
+   20 Aug 2026: a fourth plan, `addTwo` ($49), joined the original three — see
+   its own note below. It needs its own Gumroad product the same way the first
+   three did.
    ═══════════════════════════════════════════════════════════════════════════ */
 
 export type Plan = { productId: string; checkout: string; price: string; label: string };
 
-export const PLANS: Record<"family" | "second" | "bundle", Plan> = {
+export const PLANS: Record<"family" | "second" | "addTwo" | "bundle", Plan> = {
   /** The ordinary price: One Ayah At A Time on its own. */
   family: {
     productId: "5K-rSAFj42TdAX3vlGNQsQ==",
@@ -54,14 +58,29 @@ export const PLANS: Record<"family" | "second" | "bundle", Plan> = {
     price: "$40 a year",
     label: "One Ayah At A Time, for the whole family",
   },
-  /** For people who already have Spelling Quest or Muslim Kids Checklist. */
+  /** For people who already have Spelling Quest or Muslim Kids Checklist. Adds
+   *  just this one app. */
   second: {
     productId: "6TLtDTxe19Rgypj9kASU1A==",
     checkout: "https://oneayahtime.gumroad.com/l/bumvs",
     price: "$25 a year",
     label: "One Ayah At A Time, for readers who already have one of our apps",
   },
-  /** All three apps together. */
+  /** Also for people who already have one of the other two apps, but this one
+   *  adds the *two* they're missing — this app plus whichever of Spelling
+   *  Quest / Muslim Kids Checklist they don't have — for less than buying the
+   *  bundle from scratch. New 20 Aug 2026: needs its own Gumroad product; its
+   *  buy button falls back to email until productId/checkout are filled in. */
+  addTwo: {
+    productId: "",
+    checkout: "",
+    price: "$49 a year",
+    label: "One Ayah At A Time plus whichever other app you're missing, for readers who already have one of our apps",
+  },
+  /** All three apps together, from scratch — no ownership check any more.
+   *  Reworded 20 Aug 2026: this used to be gated the same way as `second`
+   *  (prove you own one app to reach it), but Kathryn wants it open to anyone
+   *  who wants all three up front, not just people upgrading from one. */
   bundle: {
     productId: "wDMOSJIqK40DaP5STkK7Pw==",
     checkout: "https://oneayahtime.gumroad.com/l/auwpw",

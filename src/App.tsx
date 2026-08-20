@@ -388,12 +388,16 @@ function forgetProgress(id:string):void {
  * answers "no" because the network failed: an offline answer offers to email,
  * because a real customer told "you don't own this" would rightly be furious.
  */
-function OwnershipGatedPrice({ plan, teaser, foundNote }: {
-  plan: "second" | "bundle";
-  /** The closed-state line, e.g. "Already have X or Y? It's $25 — [show me]" */
-  teaser: React.ReactNode;
+function OwnershipGatedPrice({ plan, teaser, foundNote, buyLabel }: {
+  plan: "second" | "addTwo";
+  /** The closed-state line, e.g. "Already have X or Y? It's $25 — [show me]".
+   *  Pass null when the teaser is shown once, shared, by a wrapping component
+   *  instead of repeated per plan. */
+  teaser: React.ReactNode | null;
   /** Shown once ownership checks out, under the buy link. */
   foundNote: React.ReactNode;
+  /** Full closed-state button text, e.g. "Add one — $25 a year". */
+  buyLabel: string;
 }) {
   const [open,setOpen] = useState(false);
   const [typed,setTyped] = useState("");
@@ -414,9 +418,9 @@ function OwnershipGatedPrice({ plan, teaser, foundNote }: {
   };
 
   if(!open) return <div className="gate-upgrade">
-    <small>{teaser}</small>
+    {teaser&&<small>{teaser}</small>}
     <button type="button" className="gate-primary" onClick={()=>setOpen(true)}>
-      Buy — {PLANS[plan].price}
+      {buyLabel}
     </button>
   </div>;
 
@@ -443,29 +447,45 @@ function OwnershipGatedPrice({ plan, teaser, foundNote }: {
   </div>;
 }
 
-/** The $25 price: already have Spelling Quest or Muslim Kids Checklist. */
-function SecondAppPrice() {
-  return <OwnershipGatedPrice
-    plan="second"
-    teaser={<>Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a> or{" "}
+/**
+ * The $25 and $49 prices, side by side under one shared teaser — both are for
+ * people who already have Spelling Quest or Muslim Kids Checklist, and differ
+ * only in how many apps the purchase adds. Collapsed into one block, 20 Aug
+ * 2026, since the two used to repeat almost the same sentence back to back.
+ */
+function TwoAppPrices() {
+  return <div className="gate-combo">
+    <small>Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a>,{" "}
+      One Ayah At A Time, or{" "}
       {KIDS_CHECKLIST_URL
         ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
-        : "Muslim Kids Checklist"}? It’s <b>{PLANS.second.price}</b>.</>}
-    foundNote="The same price every year, for as long as you stay."
-  />;
+        : "Muslim Kids Checklist"}?</small>
+    <div className="gate-combo-row">
+      <OwnershipGatedPrice
+        plan="second"
+        teaser={null}
+        buyLabel={`Add one — ${PLANS.second.price}`}
+        foundNote="The same price every year, for as long as you stay."
+      />
+      <OwnershipGatedPrice
+        plan="addTwo"
+        teaser={null}
+        buyLabel={`Add two — ${PLANS.addTwo.price}`}
+        foundNote="One key, all three apps, the same price every year for as long as you stay."
+      />
+    </div>
+  </div>;
 }
 
-/** The $89 price: already have one of our other apps, get all three. */
-function BundlePrice() {
-  return <OwnershipGatedPrice
-    plan="bundle"
-    teaser={<>Already have <a href={SPELLING_QUEST_URL} target="_blank" rel="noopener">Spelling Quest</a> or{" "}
-      {KIDS_CHECKLIST_URL
-        ? <a href={KIDS_CHECKLIST_URL} target="_blank" rel="noopener">Muslim Kids Checklist</a>
-        : "Muslim Kids Checklist"}? Get all three — One Ayah At A Time, Spelling Quest and Muslim Kids
-      Checklist — for <b>{PLANS.bundle.price}</b>.</>}
-    foundNote="One key, all three apps, the same price every year for as long as you stay."
-  />;
+/**
+ * The $89 price: all three apps at once, for someone who doesn't have any of
+ * them yet. Reworded 20 Aug 2026 to drop the ownership check that used to gate
+ * it — this is meant to be reachable by anyone, not just people upgrading.
+ */
+function AllThreePrice() {
+  return <a className="gate-primary gate-bundle" href={buyHref("bundle")}>
+    Get all three — {PLANS.bundle.price}
+  </a>;
 }
 
 function Gate({ state, onStartTrial, onUnlock, onCode }:{
@@ -518,8 +538,9 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
           <p>The usual reason is a card that expired or a payment that didn’t go through — check your
             email from Gumroad. If you think this is a mistake, email us and we will fix it.</p></>
         : state==="trial-over"
-        ? <p>We hope it was a good week. Carry on for <strong>{PLANS.family.price}</strong> — one
-            payment for the whole household, however many reciters you add.</p>
+        ? <p>We hope this past week felt like a beginning, not just a trial. Carry on for{" "}
+            <strong>{PLANS.family.price}</strong> — one payment for the whole household, however many
+            reciters you add.</p>
         : <><p>Memorizing the Quran is a long road, and it is easy to lose sight of how far you have
             already come. This is somewhere to see it — a shelf of beautiful books, one for every
             surah, filling in as they settle into your heart.</p>
@@ -543,8 +564,8 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
 
       <div className="gate-buy">
         <a className="gate-primary" href={buyHref("family")}>{state==="ended"?"Start again":"Keep it for a year"} — {PLANS.family.price} for the whole family</a>
-        <SecondAppPrice/>
-        <BundlePrice/>
+        <TwoAppPrices/>
+        <AllThreePrice/>
         <small>12 months, renews on its own until you cancel. Cancel any time from the shop.</small>
       </div>
 
@@ -1050,7 +1071,7 @@ export default function Home() {
         <a href={buyHref("family")}>Get it for {PLANS.family.price}</a>
       </p>}
       <header className={`app-titlebar ${onHome?"":"compact"}`}>
-        <div className="app-brand"><span className="brand-moon">☾</span><div><p>ONE AYAH AT A TIME</p><h1>My Quran <span>Memorization Tracker</span></h1></div></div>
+        <div className="app-brand"><span className="brand-moon">☾</span><div><p>ONE AYAH AT A TIME</p><h1>Your <span>journey</span></h1></div></div>
         <div className="child-switch" aria-label="Choose a reciter">
           <span>Whose journey?</span>
           <div>
@@ -1187,7 +1208,7 @@ export default function Home() {
 
     {tour&&<Tour onDone={()=>setTour(false)} openJuz={openJuz} goHome={goHome} tourJuz={tourJuz}/>}
     <footer>
-      <p className="footer-dua"><span>☾</span> May every page bring your heart closer to the Quran. <span>♥</span></p>
+      <p className="footer-dua"><span>☾</span> May every ayah bring your heart closer to the Quran. <span>♥</span></p>
       <div className="footer-backup">
         <button type="button" onClick={exportProgress}>Save a copy of your progress</button>
         <button type="button" onClick={()=>{markTourSeen();setTour(true)}}>Show me around</button>
@@ -1227,7 +1248,7 @@ export default function Home() {
 /**
  * Everything being learned right now, gathered from every Juz. These are the
  * books marked "I'm learning this" — there is no separate list to maintain.
- * Rendered as the same compact chips used in Book journey, since a family can
+ * Rendered as the same compact chips used in "This Juz, book by book", since a family can
  * end up with a lot of them at once.
  */
 function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
@@ -1243,7 +1264,7 @@ function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
   return <section className="memorizing-now" aria-label="Currently memorizing">
     <div className="tracker-top"><h2>Currently memorizing</h2></div>
     {items.length===0
-      ? <p className="memorizing-empty"><JourneyIcon status="learning"/><span>Nothing yet. Select a book in any Juz and it will appear here while you learn it.</span></p>
+      ? <p className="memorizing-empty"><JourneyIcon status="learning"/><span>Nothing yet. Choose a book you're learning and it will gather here.</span></p>
       : <div className="memorizing-list">{items.map(item=>
           <button className="memorizing-chip" key={item.key} onClick={()=>openJuz(item.juz)}
             title={`Open Juz ${item.juz}`}>
@@ -1290,7 +1311,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
             </div>
           </div>
         : <>
-            <p className="tap-hint"><span>✦</span> Tap the books directly in the artwork to select them <span>✦</span></p>
+            <p className="tap-hint"><span>✦</span> Tap any book in the artwork to begin <span>✦</span></p>
             <button type="button" className="bulk-start" onClick={onStartBulk}>Mark several at once</button>
           </>}
     </div>
@@ -1329,7 +1350,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
             <strong>Currently memorizing</strong>
             {(()=>{
               const learning=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="learning");
-              if(!learning.length) return <p className="work-empty">Nothing yet. Tap a book in the artwork above, or set one to <em>I’m learning this</em>, and it will appear here with a place for its ayahs.</p>;
+              if(!learning.length) return <p className="work-empty">Nothing yet. Tap a book above, or set one to <em>I’m learning this</em>, and it will gather here with a place for its ayahs.</p>;
               return <div className="work-list">{learning.map(n=>{
                 const key=`${juz.n}-${n}`;
                 return <div className="work-row" key={key}>
@@ -1340,7 +1361,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
             })()}
           </div></div>
 
-          <div className="book-journey"><strong>Book journey</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Select a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div>
+          <div className="book-journey"><strong>This Juz, book by book</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Select a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div>
         </div>}
       </div>;
       })}

@@ -34,7 +34,7 @@ const STEPS: Step[] = [
     title: "Watch it fill up",
     body: "This grows as you go — books you have started, and Juz that are fully in your heart." },
   { find: ".memorizing-now",
-    title: "What you're on right now",
+    title: "What you're carrying right now",
     body: "Whatever you're learning gathers here, from every Juz, so you never lose your place." },
   { find: ".current-work",
     title: "Note the exact ayahs",
@@ -143,7 +143,7 @@ export default function Tour({ onDone, openJuz, goHome, tourJuz }: {
         : <>
             <span className="tour-moon" aria-hidden="true">☾</span>
             <h2>As-salamu alaykum</h2>
-            <p>Take thirty seconds and we'll show you around — there are only six things to see,
+            <p>Take thirty seconds and we'll show you around — six things to see,
               and you can skip whenever you like.</p>
             <div className="tour-buttons">
               <button className="tour-next" onClick={() => setI(0)}>Show me around</button>
