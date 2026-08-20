@@ -41,8 +41,20 @@ const STEPS: Step[] = [
     body: "Open any Juz and whatever you're learning gets its own line here — jot the exact ayahs so you always know exactly where you left off.",
     before: "juz" },
   { find: ".tour-practice",
-    title: "Try it yourself",
-    body: "This practice page is just for you to try things on — nothing here is saved. Mark a book, jot a note, try marking several at once, and see what the certificate looks like once you finish.",
+    title: "Try marking a status",
+    body: "This is a practice page — nothing here is saved. Tap one of the three practice books above and choose how it's going, or jot a note once it's started.",
+    before: "practice" },
+  { find: ".tour-practice .art-actions",
+    title: "Try marking several at once",
+    body: "Tap “Mark several at once,” pick a book or two in the practice artwork, then choose one status for all of them.",
+    before: "practice" },
+  { find: ".practice-cert-preview",
+    title: "Preview the certificate",
+    body: "Mark all three practice books “It's in my heart” and a “Preview the certificate” button appears below the artwork — tap it to see what finishing looks like.",
+    before: "practice" },
+  { find: ".practice-certificate .cert-honorific",
+    title: "Hafiz or Hafizah",
+    body: "Inside that certificate preview is a small toggle — Hafizah or Hafiz — for how the finished certificate reads. It's the same toggle you'll set for real the first time you rename a reciter.",
     before: "practice" },
   { find: ".achievement-card",
     title: "Something to look forward to",
@@ -152,7 +164,7 @@ export default function Tour({ onDone, openJuz, goHome, startPractice, tourJuz }
         : <>
             <span className="tour-moon" aria-hidden="true">☾</span>
             <h2>As-salamu alaykum</h2>
-            <p>Take thirty seconds and we'll show you around — six things to see,
+            <p>Take a minute and we'll show you around — {steps.length} things to see,
               and you can skip whenever you like.</p>
             <div className="tour-buttons">
               <button className="tour-next" onClick={() => setI(0)}>Show me around</button>

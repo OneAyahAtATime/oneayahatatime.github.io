@@ -286,6 +286,7 @@
 .bulk-choices button:disabled{opacity:.5;cursor:default}
 .bulk-choices b{font-size:.78rem}
 .bulk-choices .journey-icon{width:26px;height:26px}
+.bulk-choices .blank-book{width:26px;height:26px;margin:0}
 .bulk-tools{display:flex;justify-content:center;gap:8px;margin-top:9px}
 .bulk-tools button{padding:6px 15px;border:2px solid #8f74c8;border-radius:99px;background:#1d1046;
   color:#e8dcff;font-family:inherit;font-weight:800;font-size:.74rem;cursor:pointer}
