@@ -22,8 +22,8 @@ type Step = {
   body: string;
   /** Run before this step looks for its element — the two steps that live
    *  inside a Juz, rather than on the home screen, need the app navigated
-   *  there first. */
-  before?: "juz" | "home";
+   *  there first; the practice step needs the practice-Juz page switched on. */
+  before?: "juz" | "home" | "practice";
 };
 
 const STEPS: Step[] = [
@@ -40,6 +40,10 @@ const STEPS: Step[] = [
     title: "Note the exact ayahs",
     body: "Open any Juz and whatever you're learning gets its own line here — jot the exact ayahs so you always know exactly where you left off.",
     before: "juz" },
+  { find: ".tour-practice",
+    title: "Try it yourself",
+    body: "This practice page is just for you to try things on — nothing here is saved. Mark a book, jot a note, try marking several at once, and see what the certificate looks like once you finish.",
+    before: "practice" },
   { find: ".achievement-card",
     title: "Something to look forward to",
     body: "Little milestones along the way, ending with the Khatm al-Qur'an certificate when the whole Quran is in your heart.",
@@ -49,10 +53,14 @@ const STEPS: Step[] = [
     body: "Your progress lives on this device. Save a copy any time — it's how you move to a new phone without losing a thing." },
 ];
 
-export default function Tour({ onDone, openJuz, goHome, tourJuz }: {
+export default function Tour({ onDone, openJuz, goHome, startPractice, tourJuz }: {
   onDone: () => void;
   openJuz: (n: number) => void;
   goHome: () => void;
+  /** Switches the home screen into its temporary, practice-only Juz page —
+   *  three example books, nothing saved — so the tour has something safe to
+   *  let a brand-new visitor actually try. */
+  startPractice: () => void;
   tourJuz: number;
 }) {
   const [i, setI] = useState(-1);                     // -1 is the welcome card
@@ -75,6 +83,7 @@ export default function Tour({ onDone, openJuz, goHome, tourJuz }: {
     let cancelled = false;
     if (step.before === "juz") openJuz(tourJuz);
     if (step.before === "home") goHome();
+    if (step.before === "practice") startPractice();
 
     (async () => {
       // Give the app a moment to navigate and re-render before looking for

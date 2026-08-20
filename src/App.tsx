@@ -130,6 +130,20 @@ const statusMeta:Record<RevisionStatus,{label:string;short:string;hint?:string;n
 const journeyOrder:RevisionStatus[] = ["learning","practice","memorized"];
 
 /**
+ * The tour's practice-Juz page — three example books (Al-Fatiha, Al-Asr,
+ * Al-Ikhlas) on Kathryn's own "PRACTICE • TOUR ONLY" artwork, so a brand-new
+ * visitor has something safe to try status, notes, multi-select and the
+ * certificate on before they have any real progress of their own. Rects read
+ * directly off `public/tour-practice.png`, the same way every real Juz's
+ * `bookRects` are.
+ */
+const PRACTICE_BOOKS: { key:string; name:string; rect:Rect }[] = [
+  { key:"p-fatiha", name:"Al-Fatiha", rect:[14,30,30,23] },
+  { key:"p-asr",    name:"Al-Asr",    rect:[53,30,30,23] },
+  { key:"p-ikhlas", name:"Al-Ikhlas", rect:[30,59,35,23] },
+];
+
+/**
  * A Juz counts as finished only when every surah in it is "It's in my heart".
  * It used to count as finished as soon as every book had been colored, which
  * meant a single-surah Juz threw its completion celebration on the very first
@@ -614,6 +628,22 @@ export default function Home() {
   const [picked,setPicked] = useState<string[]>([]);
   const [nextUp,setNextUp] = useState<{juz:number;name:string}|null>(null);
 
+  /* ---- the tour's practice-Juz page ---------------------------------------
+     Entirely separate state from `saved` on purpose: nothing typed or tapped
+     here is ever written to storage or synced to another device, so a brand
+     new visitor can try every control — status, notes, multi-select, the
+     certificate — without it meaning anything once the tour ends. `goHome`
+     switches it back off, same as it resets which Juz is open. */
+  const [practiceMode,setPracticeMode] = useState(false);
+  const [practiceStatuses,setPracticeStatuses] = useState<Record<string,RevisionStatus>>({});
+  const [practiceAyahs,setPracticeAyahs] = useState<Record<string,string>>({});
+  const [practiceStatusBook,setPracticeStatusBook] = useState<{key:string;name:string}|null>(null);
+  const [practiceBulk,setPracticeBulk] = useState(false);
+  const [practicePicked,setPracticePicked] = useState<string[]>([]);
+  const [practiceHonorific,setPracticeHonorific] = useState<Honorific>("Hafizah");
+  const [practiceCert,setPracticeCert] = useState(false);
+  const practiceAllMemorized = PRACTICE_BOOKS.every(b=>practiceStatuses[b.key]==="memorized");
+
   /* ---- the way in --------------------------------------------------------
      Access is kept apart from progress on purpose: progress belongs to the
      family and is never touched by any of this. Losing access hides the app,
@@ -881,7 +911,38 @@ export default function Home() {
     setOpenRow(n);
     window.scrollTo({top:0,behavior:"smooth"});
   };
-  const goHome=()=>{ setActiveGroup(null); setOpenRow(null); window.scrollTo({top:0,behavior:"smooth"}); };
+  const goHome=()=>{ setActiveGroup(null); setOpenRow(null); setPracticeMode(false); window.scrollTo({top:0,behavior:"smooth"}); };
+  /** Switches on the tour's practice-Juz page. Always lands on the home
+   *  screen first, since that's where the practice page renders. */
+  const startPractice=()=>{ goHome(); setPracticeMode(true); };
+  const practiceToggle=(key:string)=>setPracticeStatuses(s=>s[key]?s:{...s,[key]:"learning"});
+  const practiceChoose=(status:RevisionStatus)=>{
+    if(!practiceStatusBook) return;
+    setPracticeStatuses(s=>({...s,[practiceStatusBook.key]:status}));
+    setPracticeStatusBook(null);
+  };
+  const practiceUnmark=()=>{
+    if(!practiceStatusBook) return;
+    const key=practiceStatusBook.key;
+    setPracticeStatuses(s=>{const n={...s};delete n[key];return n});
+    setPracticeAyahs(a=>{const n={...a};delete n[key];return n});
+    setPracticeStatusBook(null);
+  };
+  const practiceTogglePicked=(key:string)=>setPracticePicked(p=>p.includes(key)?p.filter(k=>k!==key):[...p,key]);
+  const practiceApply=(status:RevisionStatus)=>{
+    if(!practicePicked.length) return;
+    setPracticeStatuses(s=>{const n={...s};for(const k of practicePicked) n[k]=status;return n});
+    setPracticeBulk(false);
+    setPracticePicked([]);
+  };
+  const practiceUnmarkPicked=()=>{
+    if(!practicePicked.length) return;
+    setPracticeStatuses(s=>{const n={...s};for(const k of practicePicked) delete n[k];return n});
+    setPracticeAyahs(a=>{const n={...a};for(const k of practicePicked) delete n[k];return n});
+    setPracticeBulk(false);
+    setPracticePicked([]);
+  };
+  const leavePracticeBulk=()=>{ setPracticeBulk(false); setPracticePicked([]); };
 
   /**
    * Which Juz the tour opens to show off the ayah-notes field. Whoever is
@@ -1130,6 +1191,21 @@ export default function Home() {
         </div>
 
         <section className="achievement-card" aria-label={`${reciter}'s achievements`}><div><span className="tiny">A GROWING COLLECTION</span><h2>{reciter}’s achievements</h2></div><div className="badges">{badges.map(b=><div key={b.name} className={`badge ${b.earned?"earned":"locked"}`} title={b.earned?`${b.name} earned!`:b.note}><span>{b.icon}</span><b>{b.name}</b><small>{b.note}</small></div>)}</div></section>
+
+        {practiceMode && <PracticeArea
+          statuses={practiceStatuses}
+          bulk={practiceBulk}
+          picked={practicePicked}
+          onToggle={practiceToggle}
+          onOpenStatus={(key,name)=>setPracticeStatusBook({key,name})}
+          onPick={practiceTogglePicked}
+          onStartBulk={()=>setPracticeBulk(true)}
+          onLeaveBulk={leavePracticeBulk}
+          onApply={practiceApply}
+          onUnmark={practiceUnmarkPicked}
+          allMemorized={practiceAllMemorized}
+          onPreviewCertificate={()=>setPracticeCert(true)}
+        />}
       </>}
 
       {onHome ? <>
@@ -1170,6 +1246,10 @@ export default function Home() {
 
     {statusBook&&<div className="modal-backdrop" onMouseDown={()=>setStatusBook(null)}><section className="status-dialog" role="dialog" aria-modal="true" aria-label={`Revision status for ${statusBook.name}`} onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setStatusBook(null)}>×</button><img className="status-masjid" src={asset("status-art/status-masjid.png")} alt="Watercolor masjid"/><p className="eyebrow">HOW IS THIS SURAH GOING?</p><h2>{statusBook.name}</h2><p>Choose a gentle reminder for your journey.</p><div className="status-choices">{journeyOrder.map(status=><button key={status} className={saved.statuses[statusBook.key]===status?"selected":undefined} aria-pressed={saved.statuses[statusBook.key]===status} onClick={()=>chooseStatus(status)}><JourneyIcon status={status}/><b>{statusMeta[status].label}</b>{statusMeta[status].hint&&<small className="status-hint">{statusMeta[status].hint}</small>}</button>)}<button className="status-reset" onClick={unmarkBook}><BlankBookIcon/><b>I haven’t started this yet</b><small className="status-hint">Puts this book back to blank so it can be illuminated again whenever you like.</small></button></div></section></div>}
 
+    {practiceStatusBook&&<div className="modal-backdrop" onMouseDown={()=>setPracticeStatusBook(null)}><section className="status-dialog" role="dialog" aria-modal="true" aria-label={`Practice status for ${practiceStatusBook.name}`} onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setPracticeStatusBook(null)}>×</button><p className="eyebrow">PRACTICE — NOTHING IS SAVED</p><h2>{practiceStatusBook.name}</h2><p>Try any status you like — this is just for practice.</p><div className="status-choices">{journeyOrder.map(status=><button key={status} className={practiceStatuses[practiceStatusBook.key]===status?"selected":undefined} aria-pressed={practiceStatuses[practiceStatusBook.key]===status} onClick={()=>practiceChoose(status)}><JourneyIcon status={status}/><b>{statusMeta[status].label}</b>{statusMeta[status].hint&&<small className="status-hint">{statusMeta[status].hint}</small>}</button>)}<button className="status-reset" onClick={practiceUnmark}><BlankBookIcon/><b>I haven’t started this yet</b><small className="status-hint">Puts this practice book back to blank so you can try again.</small></button></div>{practiceStatuses[practiceStatusBook.key]&&<label className="practice-ayah-field"><span>Try jotting the exact ayahs</span><input value={practiceAyahs[practiceStatusBook.key]||""} onChange={e=>setPracticeAyahs(a=>({...a,[practiceStatusBook.key]:e.target.value}))} placeholder="Ayahs, e.g. 1–7"/></label>}</section></div>}
+
+    {practiceCert&&<div className="certificate-screen practice-certificate" role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setPracticeCert(false)}>×</button><p className="practice-watermark">PRACTICE CERTIFICATE — NOTHING IS SAVED</p><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>MashaAllah!</h2><span>This certificate celebrates</span><h1>you</h1><span>for completing</span><h3>this practice Juz</h3><p className="cert-honorific">This is what it will look like when you finish — shown as a{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={practiceHonorific===option?"selected":undefined} aria-pressed={practiceHonorific===option} onClick={()=>setPracticeHonorific(option)}>{option}</button>)}</p><div className="cert-dua">May Allah fill your heart with the light of the Quran.</div></div></div>}
+
     {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{startLearning(`${juz.n}-${n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}
       {/* Nothing was offered when the Juz is already finished, so declining it makes no sense. */}
       <button className="unmark" onClick={()=>setNextUp(null)}>{remaining.length?"Not right now":"Done"}</button></section></div>})()}
@@ -1206,7 +1286,7 @@ export default function Home() {
       return <div className={`certificate-screen ${khatm?"khatm":""}`} role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>{khatm?"Khatm al-Qur’an":"MashaAllah!"}</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>{khatm?"who has memorized all 30 Juz and":"for completing"}</span><h3>{khatm?`has become a ${honorific}`:`Juz ${certificate}`}</h3><p className="cert-date">Completed {shown}</p>{khatm&&<p className="cert-honorific no-print">Show this certificate as{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={honorific===option?"selected":undefined} aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}</p>}<div className="cert-dua">{khatm?"May Allah make the Quran the light of your heart and your companion always.":"May Allah fill your heart with the light of the Quran."}</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>;
     })()}
 
-    {tour&&<Tour onDone={()=>setTour(false)} openJuz={openJuz} goHome={goHome} tourJuz={tourJuz}/>}
+    {tour&&<Tour onDone={()=>setTour(false)} openJuz={openJuz} goHome={goHome} startPractice={startPractice} tourJuz={tourJuz}/>}
     <footer>
       <p className="footer-dua"><span>☾</span> May every ayah bring your heart closer to the Quran. <span>♥</span></p>
       <div className="footer-backup">
@@ -1273,6 +1353,65 @@ function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
             <small>Juz {item.juz}{item.ayahs?` · ${item.ayahs}`:""}</small>
           </button>)}
         </div>}
+  </section>;
+}
+
+/**
+ * The tour's temporary practice-Juz page. Three example books on Kathryn's
+ * "PRACTICE • TOUR ONLY" artwork, wired to the same status dialog, multi-select
+ * bar and certificate look as a real Juz — but backed entirely by `practice*`
+ * state in `Home`, never `saved`, so nothing here is ever written to storage.
+ */
+function PracticeArea({statuses,bulk,picked,onToggle,onOpenStatus,onPick,onStartBulk,onLeaveBulk,onApply,onUnmark,allMemorized,onPreviewCertificate}:{
+  statuses:Record<string,RevisionStatus>;
+  bulk:boolean;
+  picked:string[];
+  onToggle:(key:string)=>void;
+  onOpenStatus:(key:string,name:string)=>void;
+  onPick:(key:string)=>void;
+  onStartBulk:()=>void;
+  onLeaveBulk:()=>void;
+  onApply:(status:RevisionStatus)=>void;
+  onUnmark:()=>void;
+  allMemorized:boolean;
+  onPreviewCertificate:()=>void;
+}) {
+  return <section className="tour-practice integrated-tracker" aria-label="Practice Juz — for trying the tour, nothing saved">
+    <div className="tracker-top"><h2>Try it yourself</h2><span className="practice-badge">PRACTICE · NOTHING IS SAVED</span></div>
+    <div className="interactive-art">
+      <img src={asset("tour-practice.jpg")} alt="Practice Juz page with three example books: Al-Fatiha, Al-Asr and Al-Ikhlas, labeled practice, tour only"/>
+      {PRACTICE_BOOKS.map(book=>{
+        const status=statuses[book.key];
+        return <button key={book.key}
+          className={`art-book ${status?"filled":""} status-${status||"none"} ${bulk&&picked.includes(book.key)?"picked":""}`}
+          style={{left:`${book.rect[0]}%`,top:`${book.rect[1]}%`,width:`${book.rect[2]}%`,height:`${book.rect[3]}%`}}
+          onClick={()=>bulk?onPick(book.key):status?onOpenStatus(book.key,book.name):onToggle(book.key)}
+          aria-pressed={bulk?picked.includes(book.key):!!status}
+          aria-label={`${bulk?`${picked.includes(book.key)?"Unpick":"Pick"}`:status?"Set practice status for":"Mark"} ${book.name}`}
+          title={bulk?`${book.name} — tap to pick`:status?`${book.name} — ${statusMeta[status].label}`:`${book.name} — tap to try`}>
+          {status&&<JourneyIcon status={status}/>}
+        </button>;
+      })}
+    </div>
+    <div className="art-actions">
+      {bulk
+        ? <div className="bulk-bar" role="group" aria-label="Mark several practice books at once">
+            <p><strong>{picked.length} picked</strong> — tap the practice books above, then choose one status for all of them.</p>
+            <div className="bulk-choices">
+              {journeyOrder.map(status=>
+                <button key={status} disabled={!picked.length} onClick={()=>onApply(status)}>
+                  <JourneyIcon status={status}/><b>{statusMeta[status].label}</b>
+                </button>)}
+              <button disabled={!picked.length} onClick={onUnmark}><BlankBookIcon/><b>I haven’t started this yet</b></button>
+            </div>
+            <div className="bulk-tools"><button type="button" className="quiet" onClick={onLeaveBulk}>Done</button></div>
+          </div>
+        : <>
+            <p className="tap-hint"><span>✦</span> Tap a practice book to try marking it <span>✦</span></p>
+            <button type="button" className="bulk-start" onClick={onStartBulk}>Mark several at once</button>
+          </>}
+    </div>
+    {allMemorized&&<button type="button" className="practice-cert-preview" onClick={onPreviewCertificate}>📖 Preview the certificate</button>}
   </section>;
 }
 

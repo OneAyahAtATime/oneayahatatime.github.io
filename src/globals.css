@@ -441,3 +441,21 @@ footer .footer-dua{margin:0 0 10px}
 .tour-skip:hover{border-color:#eacb62;color:#fff8ed}
 .gate-small{font-size:.78rem;color:#c9b6ea;margin-top:-4px}
 @media(prefers-reduced-motion:reduce){.tour-hole{transition:none}}
+
+/* ---- The tour's practice-Juz page ----------------------------------------- */
+.tour-practice{margin-top:26px}
+.practice-badge{display:inline-block;padding:5px 14px;border:2px solid #eacb62;border-radius:99px;
+  background:#2b1c56;color:#ffeeb8;font-weight:900;font-size:.66rem;letter-spacing:.08em}
+.practice-ayah-field{display:block;margin-top:14px;text-align:left;color:#665b7c;font-weight:800;font-size:.82rem}
+.practice-ayah-field input{display:block;width:100%;margin-top:6px;padding:9px 12px;
+  border:2px solid #cbb4dc;border-radius:12px;background:#fff;color:var(--ink);font-family:inherit;font-size:.9rem}
+.practice-ayah-field input:focus{outline:none;border-color:#e5b83c}
+.practice-cert-preview{display:block;margin:14px auto 0;padding:11px 24px;border:2px solid #eacb62;
+  border-radius:99px;background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed;font-family:inherit;
+  font-weight:900;font-size:.86rem;cursor:pointer}
+.practice-cert-preview:hover{box-shadow:0 0 22px #ffc64b66}
+.certificate-screen.practice-certificate .certificate{border-color:#8f74c8}
+.practice-watermark{position:absolute;top:14px;left:0;right:0;margin:0;font-weight:900;
+  letter-spacing:.12em;font-size:.7rem;color:#9e4c82;text-align:center}
+.practice-certificate .cert-honorific{font-size:.82rem;color:#665b7c;margin-top:14px}
+.practice-certificate .cert-honorific button{margin-left:6px}
