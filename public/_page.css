@@ -5,6 +5,7 @@ body{margin:0;padding:0;background:#0d0a2b;color:#e9dcff;
 .wrap{max-width:44rem;margin:0 auto;padding:40px 22px 60px}
 header.brand{display:flex;align-items:center;gap:10px;margin-bottom:26px}
 header.brand span{font-size:1.6rem;color:#f3d979}
+header.brand img.brand-icon{width:30px;height:30px;display:block}
 header.brand b{font-family:Georgia,serif;font-size:1.05rem;color:#fff}
 header.brand a{margin-left:auto;color:#c9b6ea;font-size:.82rem}
 h1{font-family:Georgia,serif;font-size:1.9rem;color:#fff;margin:0 0 6px}

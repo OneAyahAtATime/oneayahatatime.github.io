@@ -538,9 +538,8 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
           <p>The usual reason is a card that expired or a payment that didn’t go through — check your
             email from Gumroad. If you think this is a mistake, email us and we will fix it.</p></>
         : state==="trial-over"
-        ? <p>We hope this past week felt like a beginning, not just a trial. Carry on for{" "}
-            <strong>{PLANS.family.price}</strong> — one payment for the whole household, however many
-            reciters you add.</p>
+        ? <p>We hope it was a good week. Carry on for <strong>{PLANS.family.price}</strong> — one
+            payment for the whole household, however many reciters you add.</p>
         : <><p>Memorizing the Quran is a long road, and it is easy to lose sight of how far you have
             already come. This is somewhere to see it — a shelf of beautiful books, one for every
             surah, filling in as they settle into your heart.</p>
@@ -1071,7 +1070,7 @@ export default function Home() {
         <a href={buyHref("family")}>Get it for {PLANS.family.price}</a>
       </p>}
       <header className={`app-titlebar ${onHome?"":"compact"}`}>
-        <div className="app-brand"><span className="brand-moon">☾</span><div><p>ONE AYAH AT A TIME</p><h1>Your <span>journey</span></h1></div></div>
+        <div className="app-brand"><img className="brand-moon" src={asset("logo-icon.png")} alt="One Ayah At A Time"/><div><p>ONE AYAH AT A TIME</p><h1>My Quran <span>Memorization Tracker</span></h1></div></div>
         <div className="child-switch" aria-label="Choose a reciter">
           <span>Whose journey?</span>
           <div>
@@ -1208,7 +1207,7 @@ export default function Home() {
 
     {tour&&<Tour onDone={()=>setTour(false)} openJuz={openJuz} goHome={goHome} tourJuz={tourJuz}/>}
     <footer>
-      <p className="footer-dua"><span>☾</span> May every ayah bring your heart closer to the Quran. <span>♥</span></p>
+      <p className="footer-dua"><span>☾</span> May every page bring your heart closer to the Quran. <span>♥</span></p>
       <div className="footer-backup">
         <button type="button" onClick={exportProgress}>Save a copy of your progress</button>
         <button type="button" onClick={()=>{markTourSeen();setTour(true)}}>Show me around</button>
@@ -1248,7 +1247,7 @@ export default function Home() {
 /**
  * Everything being learned right now, gathered from every Juz. These are the
  * books marked "I'm learning this" — there is no separate list to maintain.
- * Rendered as the same compact chips used in "This Juz, book by book", since a family can
+ * Rendered as the same compact chips used in Book journey, since a family can
  * end up with a lot of them at once.
  */
 function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
@@ -1264,7 +1263,7 @@ function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
   return <section className="memorizing-now" aria-label="Currently memorizing">
     <div className="tracker-top"><h2>Currently memorizing</h2></div>
     {items.length===0
-      ? <p className="memorizing-empty"><JourneyIcon status="learning"/><span>Nothing yet. Choose a book you're learning and it will gather here.</span></p>
+      ? <p className="memorizing-empty"><JourneyIcon status="learning"/><span>Nothing yet. Select a book in any Juz and it will appear here while you learn it.</span></p>
       : <div className="memorizing-list">{items.map(item=>
           <button className="memorizing-chip" key={item.key} onClick={()=>openJuz(item.juz)}
             title={`Open Juz ${item.juz}`}>
@@ -1311,7 +1310,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
             </div>
           </div>
         : <>
-            <p className="tap-hint"><span>✦</span> Tap any book in the artwork to begin <span>✦</span></p>
+            <p className="tap-hint"><span>✦</span> Tap the books directly in the artwork to select them <span>✦</span></p>
             <button type="button" className="bulk-start" onClick={onStartBulk}>Mark several at once</button>
           </>}
     </div>
@@ -1350,7 +1349,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
             <strong>Currently memorizing</strong>
             {(()=>{
               const learning=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="learning");
-              if(!learning.length) return <p className="work-empty">Nothing yet. Tap a book above, or set one to <em>I’m learning this</em>, and it will gather here with a place for its ayahs.</p>;
+              if(!learning.length) return <p className="work-empty">Nothing yet. Tap a book in the artwork above, or set one to <em>I’m learning this</em>, and it will appear here with a place for its ayahs.</p>;
               return <div className="work-list">{learning.map(n=>{
                 const key=`${juz.n}-${n}`;
                 return <div className="work-row" key={key}>
@@ -1361,7 +1360,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
             })()}
           </div></div>
 
-          <div className="book-journey"><strong>This Juz, book by book</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Select a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div>
+          <div className="book-journey"><strong>Book journey</strong>{(()=>{const done=juz.surahs.filter(n=>saved.colored[`${juz.n}-${n}`]);if(!done.length) return <div className="journey-empty"><em>Select a book to begin its journey.</em></div>;return journeyOrder.map(group=>{const items=done.filter(n=>(saved.statuses[`${juz.n}-${n}`]||"learning")===group);if(!items.length) return null;return <div className="journey-group" key={group}><h4><JourneyIcon status={group}/>{statusMeta[group].short}{statusMeta[group].note&&<i>{statusMeta[group].note}</i>}<span>{items.length}</span></h4><div>{items.map(n=>{const key=`${juz.n}-${n}`;return <button key={key} onClick={()=>openStatus({key,name:surahs[n-1].en,juz:juz.n})} title={`Change ${surahs[n-1].en}`}><JourneyIcon status={group}/><span><b>{surahs[n-1].en}</b></span></button>})}</div></div>})})()}</div>
         </div>}
       </div>;
       })}
