@@ -53,7 +53,7 @@ export type Plan = { productId: string; checkout: string; price: string; label: 
 export const PLANS: Record<"family" | "second" | "addTwo" | "bundle", Plan> = {
   /** The ordinary price: One Ayah At A Time on its own. */
   family: {
-    productId: "5K-rSAFj42TdAX3vlGNQsQ==",
+    productId: "5K-rSAFj42TdAX3vIGNQsQ==",
     checkout: "https://oneayahtime.gumroad.com/l/vcwkuz",
     price: "$40 a year",
     label: "One Ayah At A Time, for the whole family",
