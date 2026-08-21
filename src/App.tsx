@@ -919,8 +919,23 @@ export default function Home() {
 
   const commitReciters=(next:Reciter[])=>{ setReciters(next); writeReciters(next); };
 
+  // While someone is actively typing a name, only the length cap is enforced —
+  // no trimming and no falling back to the default name. Trimming (or
+  // restoring the default, if what's left is blank) happens once, when the
+  // field is finalized. Doing that trim/fallback on every keystroke instead
+  // used to strip a just-typed trailing space before the next letter landed
+  // (making it look like spaces couldn't be typed between a first and middle
+  // name) and would silently overwrite an emptied field with "Reciter 2"
+  // mid-edit, which then sat ahead of whatever was typed next.
   const renameReciter=(value:string)=>{
-    const cleaned=cleanName(value,defaultReciterName(activeIndex+1));
+    const capped=value.slice(0,MAX_NAME);
+    commitReciters(reciters.map(r=>r.id===activeId?{...r,name:capped}:r));
+    setSaved(s=>({...s,name:capped}));
+  };
+
+  const finalizeReciterName=()=>{
+    const cleaned=cleanName(reciter,defaultReciterName(activeIndex+1));
+    if(cleaned===reciter) return;
     commitReciters(reciters.map(r=>r.id===activeId?{...r,name:cleaned}:r));
     setSaved(s=>({...s,name:cleaned}));
   };
@@ -1266,14 +1281,15 @@ export default function Home() {
         <div className="child-switch" aria-label="Choose a reciter">
           <span>Whose journey?</span>
           <div>
-            {reciters.map(r=><button key={r.id} className={activeId===r.id?"selected":""} onClick={()=>{setActiveId(r.id);setRenaming(false);setConfirmRemove(false)}}>{r.name}</button>)}
+            {reciters.map(r=><button key={r.id} className={activeId===r.id?"selected":""} onClick={()=>{if(renaming)finalizeReciterName();setActiveId(r.id);setRenaming(false);setConfirmRemove(false)}}>{r.name}</button>)}
             <button type="button" className="add-reciter" onClick={addReciter} title="Add another reciter">+ Add reciter</button>
           </div>
           {renaming
-            ? <form className="learner-rename" onSubmit={e=>{e.preventDefault();setRenaming(false);setConfirmRemove(false)}}>
+            ? <form className="learner-rename" onSubmit={e=>{e.preventDefault();finalizeReciterName();setRenaming(false);setConfirmRemove(false)}}>
                 <label htmlFor="reciter-name">Nickname</label>
                 <input id="reciter-name" autoFocus maxLength={MAX_NAME} value={reciter}
                   onChange={e=>renameReciter(e.target.value)}
+                  onBlur={finalizeReciterName}
                   placeholder={defaultReciterName(activeIndex+1)}/>
                 <button type="submit">Done</button>
                 <small>A nickname is perfect — there’s no need for a full name.</small>
@@ -1293,7 +1309,7 @@ export default function Home() {
                   ? <p className="remove-confirm">Remove {reciter} and their books? <button type="button" className="danger" onClick={removeReciter}>Yes, remove</button> <button type="button" onClick={()=>setConfirmRemove(false)}>Keep</button></p>
                   : <button type="button" className="remove-reciter" onClick={()=>setConfirmRemove(true)}>Remove this reciter</button>)}
               </form>
-            : <button type="button" className="rename-learner" onClick={()=>setRenaming(true)}>Rename {reciter}</button>}
+            : <button type="button" className="rename-learner" onClick={()=>setRenaming(true)}>{reciter}’s settings</button>}
           <small><i className={syncStatus.includes("won’t let")?"error":""}/> {
             syncStatus.includes("won’t let") ? syncStatus
             : syncLine==="ok"      ? "Saved on all your devices"
