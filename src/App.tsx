@@ -541,7 +541,7 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
 
   return <main className="gate-screen">
     <section className="gate">
-      <img className="gate-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon and lantern"/>
+      <img className="gate-moon" src={asset("logo-icon.png")} alt="One Ayah At A Time"/>
       <p className="eyebrow">ONE AYAH AT A TIME</p>
       <h1>{heading}</h1>
 
@@ -649,6 +649,12 @@ export default function Home() {
    *  rather than just described. Reset by `goHome`, same as everything else
    *  the tour switches on. */
   const [tourDemoNotes,setTourDemoNotes] = useState(false);
+  /** Set only by the tour's "what you're carrying right now" step, and only
+   *  while nothing is genuinely being learned yet — shows three static example
+   *  chips, one per status, so a brand-new visitor sees what a mix of
+   *  progress looks like rather than the plain empty message. Reset by
+   *  `goHome`, same as everything else the tour switches on temporarily. */
+  const [tourDemoCarrying,setTourDemoCarrying] = useState(false);
 
   /* ---- the way in --------------------------------------------------------
      Access is kept apart from progress on purpose: progress belongs to the
@@ -917,7 +923,17 @@ export default function Home() {
     setOpenRow(n);
     window.scrollTo({top:0,behavior:"smooth"});
   };
-  const goHome=()=>{ setActiveGroup(null); setOpenRow(null); setPracticeMode(false); setTourDemoNotes(false); window.scrollTo({top:0,behavior:"smooth"}); };
+  const goHome=()=>{
+    setActiveGroup(null); setOpenRow(null); setPracticeMode(false); setTourDemoNotes(false);
+    setTourDemoCarrying(false);
+    // Every practice dialog/overlay gets torn down here too — not just
+    // practiceMode itself. Without this, leaving mid-practice (e.g. the tour
+    // moving from one practice step to the next, or off the practice page
+    // entirely) left a dialog or the certificate sitting open on top of
+    // whatever came next, invisible-highlight bugs Kathryn caught in the tour.
+    setPracticeStatusBook(null); setPracticeBulk(false); setPracticePicked([]); setPracticeCert(false);
+    window.scrollTo({top:0,behavior:"smooth"});
+  };
   /** Switches on the tour's practice-Juz page. Always lands on the home
    *  screen first, since that's where the practice page renders. */
   const startPractice=()=>{ goHome(); setPracticeMode(true); };
@@ -925,6 +941,9 @@ export default function Home() {
    *  off and, if nothing there is marked "learning" yet, also switches on the
    *  static example row so the ayah-note field is actually visible. */
   const startJuzNotes=(n:number)=>{ openJuz(n); setTourDemoNotes(true); };
+  /** The tour's "what you're carrying right now" step — lands on the home
+   *  screen (where this card lives) with the three-status demo switched on. */
+  const startCarryingDemo=()=>{ goHome(); setTourDemoCarrying(true); };
   /** The tour's "try marking a status" step — practice page on, with one
    *  practice book's status dialog already open and labeled, so there's
    *  something concrete on screen rather than bare artwork. */
@@ -1236,7 +1255,7 @@ export default function Home() {
       </>}
 
       {onHome ? <>
-        <MemorizingNow saved={saved} openJuz={openJuz}/>
+        <MemorizingNow saved={saved} openJuz={openJuz} tourDemoCarrying={tourDemoCarrying}/>
         <section className="juz-overview" aria-label="All 30 Juz">
           <div className="tracker-top"><h2>Choose a Juz</h2></div>
           <div className="juz-tiles">
@@ -1315,6 +1334,7 @@ export default function Home() {
     })()}
 
     {tour&&<Tour onDone={()=>setTour(false)} openJuz={startJuzNotes} goHome={goHome}
+      startCarryingDemo={startCarryingDemo}
       startPracticeStatus={startPracticeStatus} startPracticeBulk={startPracticeBulk} startPracticeCert={startPracticeCert}
       tourJuz={tourJuz}/>}
     <footer>
@@ -1361,7 +1381,10 @@ export default function Home() {
  * Rendered as the same compact chips used in "This Juz, book by book", since a family can
  * end up with a lot of them at once.
  */
-function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
+function MemorizingNow({saved,openJuz,tourDemoCarrying}:{saved:Saved;openJuz:(n:number)=>void;
+  /** Set only by the tour's own step, and only while nothing is genuinely
+   *  being learned yet — see the state's own comment in `Home`. */
+  tourDemoCarrying?:boolean}) {
   const items:{key:string;juz:number;name:string;ayahs:string}[]=[];
   for(const juz of juzs) {
     for(const n of juz.surahs) {
@@ -1369,6 +1392,28 @@ function MemorizingNow({saved,openJuz}:{saved:Saved;openJuz:(n:number)=>void}) {
       if(saved.statuses[key]!=="learning") continue;
       items.push({key,juz:juz.n,name:surahs[n-1].en,ayahs:saved.ayahs[key]||""});
     }
+  }
+
+  if(items.length===0 && tourDemoCarrying) {
+    // Three real (Juz, surah) pairs, one per status, so a brand-new visitor
+    // sees what a mix of progress looks like — not wired to real storage,
+    // and this card's real job (below) stays "learning" books only.
+    const demo:{key:string;juz:number;name:string;status:RevisionStatus}[] = [
+      {key:"demo-2-2",juz:2,name:"Al-Baqarah",status:"learning"},
+      {key:"demo-27-54",juz:27,name:"Al-Qamar",status:"practice"},
+      {key:"demo-30-114",juz:30,name:"An-Nas",status:"memorized"},
+    ];
+    return <section className="memorizing-now" aria-label="Currently memorizing">
+      <div className="tracker-top"><h2>Currently memorizing</h2></div>
+      <div className="memorizing-list demo-work">{demo.map(item=>
+        <button className="memorizing-chip" key={item.key} type="button" tabIndex={-1} aria-hidden="true">
+          <JourneyIcon status={item.status}/>
+          <b>{item.name}</b>
+          <small>Juz {item.juz} · {statusMeta[item.status].short}</small>
+        </button>)}
+      </div>
+      <small className="demo-tag">Example — every status you mark gathers somewhere like this</small>
+    </section>;
   }
 
   return <section className="memorizing-now" aria-label="Currently memorizing">
@@ -1531,7 +1576,7 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
                   return <div className="work-list demo-work">
                     <div className="work-row">
                       <b>{example}</b>
-                      <input aria-label={`Example ayahs for ${example}`} value="1–5" readOnly tabIndex={-1}/>
+                      <input aria-label={`Example ayahs for ${example}`} value="Finished 1–5, struggling with 6–8, have 9–10 memorized" readOnly tabIndex={-1}/>
                     </div>
                     <small className="demo-tag">Example — set a book to “I’m learning this” for your own</small>
                   </div>;

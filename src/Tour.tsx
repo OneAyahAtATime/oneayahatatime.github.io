@@ -26,7 +26,7 @@ type Step = {
    *  specific bit of practice state already set (a book's dialog open, bulk
    *  mode on, the certificate showing) so there's something concrete on
    *  screen rather than bare artwork. */
-  before?: "juz" | "home" | "practiceStatus" | "practiceBulk" | "practiceCert";
+  before?: "juz" | "home" | "carrying" | "practiceStatus" | "practiceBulk" | "practiceCert";
 };
 
 const STEPS: Step[] = [
@@ -38,14 +38,15 @@ const STEPS: Step[] = [
     body: "This grows as you go — books you have started, and Juz that are fully in your heart." },
   { find: ".memorizing-now",
     title: "What you're carrying right now",
-    body: "Whatever you're learning gathers here, from every Juz, so you never lose your place." },
+    body: "Whatever you're learning gathers here, from every Juz — shown here with one example of each status, so you can see exactly how it looks once you begin.",
+    before: "carrying" },
   { find: ".current-work",
     title: "Note the exact ayahs",
     body: "Open any Juz and whatever you're learning gets its own line here — jot the exact ayahs so you always know exactly where you left off.",
     before: "juz" },
   { find: ".status-dialog",
     title: "Try marking a status",
-    body: "This is a practice page — nothing here is saved. Al-Fatiha is already open below — choose how it's going, or tap “I haven't started this yet” and pick a different practice book instead.",
+    body: "This is a practice area — nothing here is saved. Al-Fatiha is already open below — choose how it's going, or tap “I haven't started this yet” and pick a different practice book instead.",
     before: "practiceStatus" },
   { find: ".tour-practice .bulk-bar",
     title: "Try marking several at once",
@@ -68,10 +69,12 @@ const STEPS: Step[] = [
     body: "Your progress lives on this device, and travels to your other devices once you have a licence key. Save a copy any time too — it's the one that works from day one, key or not." },
 ];
 
-export default function Tour({ onDone, openJuz, goHome, startPracticeStatus, startPracticeBulk, startPracticeCert, tourJuz }: {
+export default function Tour({ onDone, openJuz, goHome, startCarryingDemo, startPracticeStatus, startPracticeBulk, startPracticeCert, tourJuz }: {
   onDone: () => void;
   openJuz: (n: number) => void;
   goHome: () => void;
+  /** Home screen, with the "carrying" card's three-status demo switched on. */
+  startCarryingDemo: () => void;
   /** Practice page on, with Al-Fatiha's status dialog already open. */
   startPracticeStatus: () => void;
   /** Practice page on, with multi-select already switched on. */
@@ -101,6 +104,7 @@ export default function Tour({ onDone, openJuz, goHome, startPracticeStatus, sta
     let cancelled = false;
     if (step.before === "juz") openJuz(tourJuz);
     if (step.before === "home") goHome();
+    if (step.before === "carrying") startCarryingDemo();
     if (step.before === "practiceStatus") startPracticeStatus();
     if (step.before === "practiceBulk") startPracticeBulk();
     if (step.before === "practiceCert") startPracticeCert();
