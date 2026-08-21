@@ -227,6 +227,8 @@
 .work-row input{flex:1;min-width:0}
 .work-empty{margin:4px 0 0;font-size:.75rem;font-weight:600;color:#7d63a3;line-height:1.4}
 .work-empty em{font-style:normal;font-weight:800;color:#5b3a90}
+.demo-work .work-row input{background:#f6f0fb;color:#7d63a3;cursor:default}
+.demo-tag{display:block;margin-top:5px;font-size:.66rem;font-weight:700;color:#9c7fc0;font-style:italic}
 @media (max-width:640px){ .work-row{display:block} .work-row b{display:block;margin-bottom:3px} }
 
 /* Home-screen chips match the Book journey chips. */

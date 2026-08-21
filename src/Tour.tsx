@@ -20,10 +20,13 @@ type Step = {
   find: string;
   title: string;
   body: string;
-  /** Run before this step looks for its element — the two steps that live
-   *  inside a Juz, rather than on the home screen, need the app navigated
-   *  there first; the practice step needs the practice-Juz page switched on. */
-  before?: "juz" | "home" | "practice";
+  /** Run before this step looks for its element. The steps that live inside
+   *  a Juz or the practice page, rather than on the plain home screen, need
+   *  the app switched there first — and several practice steps also need a
+   *  specific bit of practice state already set (a book's dialog open, bulk
+   *  mode on, the certificate showing) so there's something concrete on
+   *  screen rather than bare artwork. */
+  before?: "juz" | "home" | "practiceStatus" | "practiceBulk" | "practiceCert";
 };
 
 const STEPS: Step[] = [
@@ -40,39 +43,42 @@ const STEPS: Step[] = [
     title: "Note the exact ayahs",
     body: "Open any Juz and whatever you're learning gets its own line here — jot the exact ayahs so you always know exactly where you left off.",
     before: "juz" },
-  { find: ".tour-practice",
+  { find: ".status-dialog",
     title: "Try marking a status",
-    body: "This is a practice page — nothing here is saved. Tap one of the three practice books above and choose how it's going, or jot a note once it's started.",
-    before: "practice" },
-  { find: ".tour-practice .art-actions",
+    body: "This is a practice page — nothing here is saved. Al-Fatiha is already open below — choose how it's going, or tap “I haven't started this yet” and pick a different practice book instead.",
+    before: "practiceStatus" },
+  { find: ".tour-practice .bulk-bar",
     title: "Try marking several at once",
-    body: "Tap “Mark several at once,” pick a book or two in the practice artwork, then choose one status for all of them.",
-    before: "practice" },
-  { find: ".practice-cert-preview",
+    body: "Pick a book or two in the practice artwork above, then choose one status for all of them here.",
+    before: "practiceBulk" },
+  { find: ".practice-certificate",
     title: "Preview the certificate",
-    body: "Mark all three practice books “It's in my heart” and a “Preview the certificate” button appears below the artwork — tap it to see what finishing looks like.",
-    before: "practice" },
+    body: "All three practice books are now “It's in my heart” — here's what the certificate looks like once a Juz is finished for real.",
+    before: "practiceCert" },
   { find: ".practice-certificate .cert-honorific",
     title: "Hafiz or Hafizah",
-    body: "Inside that certificate preview is a small toggle — Hafizah or Hafiz — for how the finished certificate reads. It's the same toggle you'll set for real the first time you rename a reciter.",
-    before: "practice" },
+    body: "And right here — a small toggle for how the finished certificate reads: Hafizah or Hafiz. It's the same toggle you'll set for real the first time you rename a reciter.",
+    before: "practiceCert" },
   { find: ".achievement-card",
     title: "Something to look forward to",
     body: "Little milestones along the way, ending with the Khatm al-Qur'an certificate when the whole Quran is in your heart.",
     before: "home" },
   { find: ".footer-backup",
     title: "Keep it safe",
-    body: "Your progress lives on this device. Save a copy any time — it's how you move to a new phone without losing a thing." },
+    body: "Your progress lives on this device, and travels to your other devices once you have a licence key. Save a copy any time too — it's the one that works from day one, key or not." },
 ];
 
-export default function Tour({ onDone, openJuz, goHome, startPractice, tourJuz }: {
+export default function Tour({ onDone, openJuz, goHome, startPracticeStatus, startPracticeBulk, startPracticeCert, tourJuz }: {
   onDone: () => void;
   openJuz: (n: number) => void;
   goHome: () => void;
-  /** Switches the home screen into its temporary, practice-only Juz page —
-   *  three example books, nothing saved — so the tour has something safe to
-   *  let a brand-new visitor actually try. */
-  startPractice: () => void;
+  /** Practice page on, with Al-Fatiha's status dialog already open. */
+  startPracticeStatus: () => void;
+  /** Practice page on, with multi-select already switched on. */
+  startPracticeBulk: () => void;
+  /** Practice page on, all three books already marked "in my heart," and the
+   *  certificate preview already open. */
+  startPracticeCert: () => void;
   tourJuz: number;
 }) {
   const [i, setI] = useState(-1);                     // -1 is the welcome card
@@ -95,7 +101,9 @@ export default function Tour({ onDone, openJuz, goHome, startPractice, tourJuz }
     let cancelled = false;
     if (step.before === "juz") openJuz(tourJuz);
     if (step.before === "home") goHome();
-    if (step.before === "practice") startPractice();
+    if (step.before === "practiceStatus") startPracticeStatus();
+    if (step.before === "practiceBulk") startPracticeBulk();
+    if (step.before === "practiceCert") startPracticeCert();
 
     (async () => {
       // Give the app a moment to navigate and re-render before looking for

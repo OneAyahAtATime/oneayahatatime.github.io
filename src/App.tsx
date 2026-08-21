@@ -643,6 +643,12 @@ export default function Home() {
   const [practiceHonorific,setPracticeHonorific] = useState<Honorific>("Hafizah");
   const [practiceCert,setPracticeCert] = useState(false);
   const practiceAllMemorized = PRACTICE_BOOKS.every(b=>practiceStatuses[b.key]==="memorized");
+  /** True only while the tour's "note the exact ayahs" step is showing a real
+   *  Juz that has nothing marked "learning" yet — shows one static example row
+   *  (not wired to real storage) so the ayah-note field is actually visible
+   *  rather than just described. Reset by `goHome`, same as everything else
+   *  the tour switches on. */
+  const [tourDemoNotes,setTourDemoNotes] = useState(false);
 
   /* ---- the way in --------------------------------------------------------
      Access is kept apart from progress on purpose: progress belongs to the
@@ -911,10 +917,31 @@ export default function Home() {
     setOpenRow(n);
     window.scrollTo({top:0,behavior:"smooth"});
   };
-  const goHome=()=>{ setActiveGroup(null); setOpenRow(null); setPracticeMode(false); window.scrollTo({top:0,behavior:"smooth"}); };
+  const goHome=()=>{ setActiveGroup(null); setOpenRow(null); setPracticeMode(false); setTourDemoNotes(false); window.scrollTo({top:0,behavior:"smooth"}); };
   /** Switches on the tour's practice-Juz page. Always lands on the home
    *  screen first, since that's where the practice page renders. */
   const startPractice=()=>{ goHome(); setPracticeMode(true); };
+  /** The tour's "note the exact ayahs" step — opens the real Juz being shown
+   *  off and, if nothing there is marked "learning" yet, also switches on the
+   *  static example row so the ayah-note field is actually visible. */
+  const startJuzNotes=(n:number)=>{ openJuz(n); setTourDemoNotes(true); };
+  /** The tour's "try marking a status" step — practice page on, with one
+   *  practice book's status dialog already open and labeled, so there's
+   *  something concrete on screen rather than bare artwork. */
+  const startPracticeStatus=()=>{ startPractice(); setPracticeStatusBook({key:"p-fatiha",name:"Al-Fatiha"}); };
+  /** The tour's "try marking several at once" step — practice page on, with
+   *  multi-select already switched on so the highlight lands on the actual
+   *  four-option bar, not the inert "Mark several at once" button. */
+  const startPracticeBulk=()=>{ startPractice(); setPracticeBulk(true); };
+  /** The tour's certificate steps (preview, then the Hafiz/Hafizah toggle) —
+   *  practice page on, all three practice books marked "in my heart," and the
+   *  certificate preview already open, so there's a real certificate to be
+   *  excited about rather than a button describing one. */
+  const startPracticeCert=()=>{
+    startPractice();
+    setPracticeStatuses(s=>({...s,"p-fatiha":"memorized","p-asr":"memorized","p-ikhlas":"memorized"}));
+    setPracticeCert(true);
+  };
   const practiceToggle=(key:string)=>setPracticeStatuses(s=>s[key]?s:{...s,[key]:"learning"});
   const practiceChoose=(status:RevisionStatus)=>{
     if(!practiceStatusBook) return;
@@ -1240,7 +1267,8 @@ export default function Home() {
           <div className="tools"><span>Illuminate <small>(choose its colors)</small></span>{colorOptions.map(option=><button key={option.value} aria-label={`Choose ${option.label}`} title={option.label} aria-pressed={color===option.value} className={`swatch ${option.background?"blend-swatch":""}`} onClick={()=>setColor(option.value)} style={{background:option.background||option.value}}/>)}</div>
         </div>
         <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateAyahs={updateAyahs} openStatus={setStatusBook} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}
-          bulk={bulk} picked={picked} onPick={togglePicked} onPickAll={setPicked} onApply={applyToPicked} onUnmark={unmarkPicked} onStartBulk={()=>setBulk(true)} onLeaveBulk={leaveBulk}/>
+          bulk={bulk} picked={picked} onPick={togglePicked} onPickAll={setPicked} onApply={applyToPicked} onUnmark={unmarkPicked} onStartBulk={()=>setBulk(true)} onLeaveBulk={leaveBulk}
+          tourDemoJuz={tourDemoNotes?tourJuz:undefined}/>
       </>}
     </section>
 
@@ -1286,7 +1314,9 @@ export default function Home() {
       return <div className={`certificate-screen ${khatm?"khatm":""}`} role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setCertificate(null)}>×</button><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QURAN MEMORIZATION</p><h2>{khatm?"Khatm al-Qur’an":"MashaAllah!"}</h2><span>This certificate celebrates</span><h1>{reciter}</h1><span>{khatm?"who has memorized all 30 Juz and":"for completing"}</span><h3>{khatm?`has become a ${honorific}`:`Juz ${certificate}`}</h3><p className="cert-date">Completed {shown}</p>{khatm&&<p className="cert-honorific no-print">Show this certificate as{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={honorific===option?"selected":undefined} aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}</p>}<div className="cert-dua">{khatm?"May Allah make the Quran the light of your heart and your companion always.":"May Allah fill your heart with the light of the Quran."}</div><div className="cert-art"><img src={asset("status-art/learning-moon.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img className="cert-masjid" src={asset("status-art/status-masjid.png")} alt=""/><img src={asset("status-art/memorized-star.png")} alt=""/><img src={asset("status-art/learning-moon.png")} alt=""/></div><button className="print-button no-print" onClick={()=>window.print()}>Print or save certificate</button></div></div>;
     })()}
 
-    {tour&&<Tour onDone={()=>setTour(false)} openJuz={openJuz} goHome={goHome} startPractice={startPractice} tourJuz={tourJuz}/>}
+    {tour&&<Tour onDone={()=>setTour(false)} openJuz={startJuzNotes} goHome={goHome}
+      startPracticeStatus={startPracticeStatus} startPracticeBulk={startPracticeBulk} startPracticeCert={startPracticeCert}
+      tourJuz={tourJuz}/>}
     <footer>
       <p className="footer-dua"><span>☾</span> May every ayah bring your heart closer to the Quran. <span>♥</span></p>
       <div className="footer-backup">
@@ -1415,7 +1445,11 @@ function PracticeArea({statuses,bulk,picked,onToggle,onOpenStatus,onPick,onStart
   </section>;
 }
 
-function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,openCertificate,openRow,setOpenRow,bulk,picked,onPick,onPickAll,onApply,onUnmark,onStartBulk,onLeaveBulk}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateAyahs:(key:string,value:string)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void;bulk:boolean;picked:string[];onPick:(key:string)=>void;onPickAll:(keys:string[])=>void;onApply:(status:RevisionStatus)=>void;onUnmark:()=>void;onStartBulk:()=>void;onLeaveBulk:()=>void}) {
+function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,openCertificate,openRow,setOpenRow,bulk,picked,onPick,onPickAll,onApply,onUnmark,onStartBulk,onLeaveBulk,tourDemoJuz}:{juzs:Juz[];saved:Saved;toggle:(k:string)=>void;update:(f:"dates"|"favorites",k:string,v:string)=>void;updateAyahs:(key:string,value:string)=>void;openStatus:(book:{key:string;name:string;juz:number})=>void;openCertificate:(juz:number)=>void;openRow:number|null;setOpenRow:(n:number|null)=>void;bulk:boolean;picked:string[];onPick:(key:string)=>void;onPickAll:(keys:string[])=>void;onApply:(status:RevisionStatus)=>void;onUnmark:()=>void;onStartBulk:()=>void;onLeaveBulk:()=>void;
+  /** Set only by the tour's "note the exact ayahs" step, and only while this
+   *  Juz has nothing genuinely marked "learning" — shows one static example
+   *  row (not wired to real storage) so the field is actually visible. */
+  tourDemoJuz?:number}) {
   const first=juzs[0],crop=cropForJuz(first.n),groupLabel=juzs.length===1?`Juz ${first.n}`:`Juz ${first.n}–${juzs[juzs.length-1].n}`;
   const pageKeys=juzs.flatMap(juz=>juz.surahs.map(n=>`${juz.n}-${n}`));
   const allPicked=picked.length===pageKeys.length&&pageKeys.every(k=>picked.includes(k));
@@ -1489,7 +1523,21 @@ function IllustratedTracker({juzs,saved,toggle,update,updateAyahs,openStatus,ope
             <strong>Currently memorizing</strong>
             {(()=>{
               const learning=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]==="learning");
-              if(!learning.length) return <p className="work-empty">Nothing yet. Tap a book in the artwork above, or set one to <em>I’m learning this</em>, and it will appear here with a place for its ayahs.</p>;
+              if(!learning.length) {
+                if(tourDemoJuz===juz.n) {
+                  // A static example, not wired to real storage: shows what
+                  // this field looks like without touching real progress.
+                  const example=surahs[juz.surahs[0]-1].en;
+                  return <div className="work-list demo-work">
+                    <div className="work-row">
+                      <b>{example}</b>
+                      <input aria-label={`Example ayahs for ${example}`} value="1–5" readOnly tabIndex={-1}/>
+                    </div>
+                    <small className="demo-tag">Example — set a book to “I’m learning this” for your own</small>
+                  </div>;
+                }
+                return <p className="work-empty">Nothing yet. Tap a book in the artwork above, or set one to <em>I’m learning this</em>, and it will appear here with a place for its ayahs.</p>;
+              }
               return <div className="work-list">{learning.map(n=>{
                 const key=`${juz.n}-${n}`;
                 return <div className="work-row" key={key}>
