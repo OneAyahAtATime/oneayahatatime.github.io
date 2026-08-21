@@ -46,7 +46,7 @@ const STEPS: Step[] = [
     before: "juz" },
   { find: ".status-dialog",
     title: "Try marking a status",
-    body: "This is a practice area — nothing here is saved. Al-Fatiha is already open below — choose how it's going, or tap “I haven't started this yet” and pick a different practice book instead.",
+    body: "Nothing you choose here is saved — Al-Fatiha is already open below. Choose how it's going, or tap “I haven't started this yet” and pick a different practice book instead.",
     before: "practiceStatus" },
   { find: ".tour-practice .bulk-bar",
     title: "Try marking several at once",
@@ -130,7 +130,18 @@ export default function Tour({ onDone, openJuz, goHome, startCarryingDemo, start
   useEffect(() => {
     const again = () => { if (step) { const el = document.querySelector(step.find); if (el) setBox(el.getBoundingClientRect()); } };
     window.addEventListener("resize", again);
-    return () => window.removeEventListener("resize", again);
+    // A step that follows another practice step (e.g. bulk-bar right after
+    // the status dialog) triggers two smooth scrolls back to back — goHome's
+    // reset to the top, then this step's own scrollIntoView. The fixed delay
+    // above guesses how long that takes; when it guesses short, the box gets
+    // measured mid-scroll and was never corrected afterwards, freezing the
+    // highlight wherever the page happened to be, sometimes a full screen
+    // off from the thing it's meant to be pointing at. Listening for scroll
+    // too — not just resize — means every animation frame of that scroll
+    // keeps the box current, so it always lands on the right place once
+    // scrolling actually stops, regardless of how long the animation took.
+    window.addEventListener("scroll", again, { passive: true });
+    return () => { window.removeEventListener("resize", again); window.removeEventListener("scroll", again); };
   }, [step]);
 
   // Skipping mid-tour, from inside the Juz the ayah-notes step opened, would
@@ -165,12 +176,18 @@ export default function Tour({ onDone, openJuz, goHome, startCarryingDemo, start
     <div className={`tour-card ${box ? "anchored" : "middle"}`} style={cardStyle}>
       {step
         ? <>
-            <p className="tour-count">{i + 1} of {steps.length}</p>
             <h2>{step.title}</h2>
             <p>{step.body}</p>
+            {/* A row of dots reads at a glance without asking anyone to do the
+             *  arithmetic a bare "6 of 10" does — the same pattern Muslim Kids
+             *  Checklist's own walkthrough uses. The count itself isn't lost,
+             *  just moved to an aria-label for anyone using a screen reader. */}
+            <div className="tour-dots" role="img" aria-label={`Step ${i + 1} of ${steps.length}`}>
+              {steps.map((_, idx) => <span key={idx} className={`tour-dot ${idx === i ? "active" : idx < i ? "done" : ""}`}/>)}
+            </div>
             <div className="tour-buttons">
-              <button className="tour-next" onClick={next}>{i + 1 === steps.length ? "Start memorizing" : "Next"}</button>
               <button className="tour-skip" onClick={finish}>Skip</button>
+              <button className="tour-next" onClick={next}>{i + 1 === steps.length ? "Start memorizing" : "Next"}</button>
             </div>
           </>
         : <>
@@ -179,8 +196,8 @@ export default function Tour({ onDone, openJuz, goHome, startCarryingDemo, start
             <p>Take a minute and we'll show you around — {steps.length} things to see,
               and you can skip whenever you like.</p>
             <div className="tour-buttons">
-              <button className="tour-next" onClick={() => setI(0)}>Show me around</button>
               <button className="tour-skip" onClick={finish}>I'll explore on my own</button>
+              <button className="tour-next" onClick={() => setI(0)}>Show me around</button>
             </div>
           </>}
     </div>
