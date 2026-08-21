@@ -443,16 +443,13 @@ footer .footer-dua{margin:0 0 10px}
 .tour-dot{width:7px;height:7px;border-radius:99px;background:transparent;border:1.5px solid #8f74c880}
 .tour-dot.done{width:7px;background:#8f74c8;border-color:#8f74c8}
 .tour-dot.active{width:20px;background:#f2c94c;border-color:#f2c94c;box-shadow:0 0 8px #ffc64b99}
-.tour-buttons{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.tour-buttons{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
 .tour-next{border:2px solid #e6bc47;border-radius:99px;padding:9px 22px;font-family:inherit;
   font-weight:900;font-size:.86rem;cursor:pointer;background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed}
 .tour-next:hover{box-shadow:0 0 22px #ffc64b66}
-/* Skip is the quiet way out, not a competing button — plain text, no
-   border, same weight as Muslim Kids Checklist's own "Skip" link. */
-.tour-skip{border:none;background:transparent;padding:9px 6px;
-  color:#c9b6ea;font-family:inherit;font-weight:700;font-size:.82rem;cursor:pointer;
-  text-decoration:underline;text-decoration-color:#c9b6ea66;text-underline-offset:3px}
-.tour-skip:hover{color:#fff8ed;text-decoration-color:#fff8ed}
+.tour-skip{border:2px solid #8f74c8;border-radius:99px;padding:9px 18px;background:transparent;
+  color:#d9c8f5;font-family:inherit;font-weight:800;font-size:.82rem;cursor:pointer}
+.tour-skip:hover{border-color:#eacb62;color:#fff8ed}
 .gate-small{font-size:.78rem;color:#c9b6ea;margin-top:-4px}
 @media(prefers-reduced-motion:reduce){.tour-hole{transition:none}}
 
