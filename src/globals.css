@@ -377,6 +377,12 @@
 .trial-strip a:hover{box-shadow:0 0 18px #ffc64b66}
 
 /* ---- Carrying your own copy ---------------------------------------------- */
+/* A small echo of the header's brand-moon, so the page has a visual bookend
+   rather than trailing off into plain text. Quieter than the header — this is
+   the goodbye, not the introduction — so it's smaller and a little translucent,
+   with the same warm glow the header's mark gets on its dark background. */
+footer .footer-mark{width:40px;height:40px;object-fit:contain;opacity:.85;
+  filter:drop-shadow(0 0 8px #ffbc3560)}
 footer .footer-dua{margin:0 0 10px}
 .footer-backup{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;align-items:center}
 .footer-backup button,.footer-backup .restore{border:2px solid #8f74c8;border-radius:99px;padding:7px 16px;

@@ -1422,6 +1422,7 @@ export default function Home() {
       startPracticeStatus={startPracticeStatus} startPracticeBulk={startPracticeBulk} startPracticeCert={startPracticeCert}
       tourJuz={tourJuz}/>}
     <footer>
+      <img className="footer-mark" src={asset("logo-icon.png")} alt="" aria-hidden="true"/>
       <p className="footer-dua"><span>☾</span> May every ayah bring your heart closer to the Qur'an. <span>♥</span></p>
       <div className="footer-backup">
         <button type="button" onClick={exportProgress}>Save a copy of your progress</button>
