@@ -187,12 +187,70 @@ export type Licence = {
   dead: boolean;
   /** typed in while offline — check it properly on the next run */
   pending?: boolean;
+  /** Only set for the $25/$49 discounted plans — the moment this key was
+   *  first redeemed, if ownership of another app hadn't already been proven.
+   *  A week on from here, the gate asks for proof before letting anyone back
+   *  in — see `ownershipDaysLeft`. Kathryn's call, 21 Aug: enforce ownership
+   *  at redemption too, not just as a pre-checkout nudge, but never lock out
+   *  someone who just paid — give them the week to actually prove it. */
+  graceStarted?: number;
+  /** Set once `ownsAnotherApp` has actually confirmed it for this licence, so
+   *  nobody is ever asked twice. */
+  ownerProven?: boolean;
 };
 /** `code` holds the *fingerprint* of a code we handed out, never the code. */
 export type Access = { trialStart?: number; licence?: Licence; code?: string };
 
-/** new = never opened the door; ended = paid once, and the purchase has ended. */
-export type AccessState = "new" | "trial" | "trial-over" | "licensed" | "ended";
+/** new = never opened the door; ended = paid once, and the purchase has ended;
+ *  needs-proof = a $25/$49 key redeemed a week ago with no ownership proof on
+ *  file yet. */
+export type AccessState = "new" | "trial" | "trial-over" | "licensed" | "ended" | "needs-proof";
+
+/** How long a $25/$49 buyer has, from the moment their key is first redeemed,
+ *  to prove they actually own another app — full access the whole time. */
+export const OWNERSHIP_GRACE_DAYS = 7;
+
+/** The two plans that only exist because you already own another app. Both
+ *  gate on `ownsAnotherApp` before checkout; both are now also enforced at
+ *  redemption, per Kathryn's 21 Aug decision. */
+export const gatedPlanIds = (): string[] =>
+  [PLANS.second.productId, PLANS.addTwo.productId].filter(Boolean);
+
+export const isGatedPlan = (productId: string | undefined) =>
+  !!productId && gatedPlanIds().includes(productId);
+
+/**
+ * Whole days left to prove ownership, or `null` if this licence isn't one of
+ * the gated plans, is already proven, or never started a grace clock (an
+ * older licence saved before this existed — never retroactively locked out).
+ */
+export function ownershipDaysLeft(licence: Licence | undefined): number | null {
+  if (!licence || licence.dead || licence.ownerProven) return null;
+  if (!isGatedPlan(licence.productId)) return null;
+  if (!licence.graceStarted) return null;
+  const used = Math.floor((Date.now() - licence.graceStarted) / 86400000);
+  return Math.max(0, OWNERSHIP_GRACE_DAYS - used);
+}
+
+/**
+ * Builds the licence object to save right after a key is redeemed. For the
+ * two gated plans this starts (or, on a later re-verify of the very same
+ * licence, preserves) the ownership grace clock — never resets a clock
+ * already running, and never re-asks once ownership has been proven.
+ *
+ * `pending` is for the offline path: the product isn't known yet (nothing
+ * was reachable to ask), so there's nothing to gate on until the next real
+ * check works out which product this key belongs to.
+ */
+export function licenceAfterUnlock(key: string, productId: string, existing?: Licence, pending?: boolean): Licence {
+  const carryForward = existing && existing.key === key ? existing : undefined;
+  const gated = !pending && isGatedPlan(productId);
+  return {
+    key, productId, checked: pending ? 0 : Date.now(), dead: false, pending,
+    graceStarted: gated ? (carryForward?.graceStarted ?? Date.now()) : undefined,
+    ownerProven: gated ? !!carryForward?.ownerProven : undefined,
+  };
+}
 
 const ACCESS_KEY = "quran-tracker-access";
 
@@ -221,7 +279,12 @@ export function accessState(a: Access): AccessState {
   // A code we handed out beats everything, and is never re-checked: there is no
   // purchase behind it to end, and nothing to phone home about.
   if (a.code && codeOk(a.code)) return "licensed";
-  if (a.licence?.key && !a.licence.dead) return "licensed";
+  if (a.licence?.key && !a.licence.dead) {
+    // A $25/$49 key with an expired grace clock and no proof on file yet —
+    // the one case a real, still-valid purchase doesn't mean full access.
+    if (ownershipDaysLeft(a.licence) === 0) return "needs-proof";
+    return "licensed";
+  }
   if (a.licence?.key && a.licence.dead) return "ended";
   const left = trialLeft(a);
   if (left === null) return "new";
@@ -379,7 +442,10 @@ export async function recheck(a: Access): Promise<Access | null> {
   // which product it belongs to. Do the whole search now.
   if (licence.pending || !licence.productId) {
     const found = await unlockWithKey(licence.key);
-    if (found.ok) return { ...a, licence: { ...licence, productId: found.productId, checked: Date.now(), pending: false } };
+    // Now that the product is finally known, a gated plan starts its
+    // ownership grace clock from here — the same as if it had resolved
+    // straight away when the key was first typed in.
+    if (found.ok) return { ...a, licence: licenceAfterUnlock(licence.key, found.productId, licence) };
     if (found.finished) return { ...a, licence: { ...licence, checked: Date.now(), dead: true } };
     return null;                                    // still offline: try again next time
   }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  type Access, type Licence, accessState, buyHref, codeFingerprint, codeOk,
-  hasAccess, ownsAnotherApp, unlockWithKey,
+  type Access, accessState, buyHref, codeFingerprint, codeOk,
+  hasAccess, ownsAnotherApp, unlockWithKey, licenceAfterUnlock, ownershipDaysLeft,
   readAccess, recheck, writeAccess, trialLeft,
   PLANS, SUPPORT_EMAIL, TRIAL_DAYS, SPELLING_QUEST_URL, KIDS_CHECKLIST_URL,
 } from "./access";
@@ -505,7 +505,7 @@ function AllThreePrice() {
 function Gate({ state, onStartTrial, onUnlock, onCode }:{
   state: "new"|"trial-over"|"ended";
   onStartTrial: () => void;
-  onUnlock: (licence: Licence) => void;
+  onUnlock: (found: {key:string; productId:string; pending?:boolean}) => void;
   onCode: (fingerprint: string) => void;
 }) {
   const [typed,setTyped] = useState("");
@@ -520,11 +520,11 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
     if(!value) return;
     setBusy(true); setProblem("");
     const found = await unlockWithKey(value);
-    if(found.ok) { onUnlock({ key:value, productId:found.productId, checked:Date.now(), dead:false }); return; }
+    if(found.ok) { onUnlock({ key:value, productId:found.productId }); return; }
     if(found.offline) {
       // No internet, or the shop is unreachable. Let them in and confirm later
       // rather than leave someone who has paid staring at a locked door.
-      onUnlock({ key:value, productId:"", checked:0, dead:false, pending:true });
+      onUnlock({ key:value, productId:"", pending:true });
       return;
     }
     setProblem(found.noShopYet
@@ -600,6 +600,73 @@ function GateFooter() {
   </p>;
 }
 
+/**
+ * A $25 or $49 key has been redeemed for a week now with no proof yet that
+ * this reciter actually owns Spelling Quest or Muslim Kids Checklist — the
+ * one thing those prices exist for. Kathryn's call, 21 Aug: enforce that at
+ * redemption, not only as a pre-checkout nudge, but never punish someone for
+ * a network hiccup or a lost code — full access the whole week regardless,
+ * and this screen only ever asks once more, kindly, with an email fallback.
+ *
+ * Deliberately its own screen rather than a branch of `Gate`: the visitor
+ * here already paid, so "start a free week" and "buy a plan" have no place —
+ * showing them here would look like the payment never happened.
+ */
+function OwnershipProofGate({ onProven, onSignOut }: {
+  onProven: () => void;
+  onSignOut: () => void;
+}) {
+  const [typed,setTyped] = useState("");
+  const [busy,setBusy] = useState(false);
+  const [problem,setProblem] = useState("");
+
+  const check = async () => {
+    const value = typed.trim();
+    if(!value) return;
+    setBusy(true); setProblem("");
+    const result = await ownsAnotherApp(value);
+    if(result.owns) { onProven(); return; }
+    if(result.offline) {
+      setProblem("We couldn’t check just now — try again in a moment, or email us and we’ll sort it out.");
+      setBusy(false);
+      return;
+    }
+    setProblem("We couldn’t match that to Spelling Quest or Muslim Kids Checklist. Check it, or email us and we’ll sort it out.");
+    setBusy(false);
+  };
+
+  return <main className="gate-screen">
+    <section className="gate">
+      <img className="gate-moon" src={asset("logo-icon.png")} alt="One Ayah At A Time"/>
+      <p className="eyebrow">ONE AYAH AT A TIME</p>
+      <h1>Just one more step</h1>
+      <p className="gate-reassure"><strong>Nothing has been deleted, and nothing is wrong with your
+        payment.</strong> Every book, date and certificate is still saved on this device, exactly as
+        you left it.</p>
+      <p>This price is for readers who already have Spelling Quest or Muslim Kids Checklist. It's
+        been a week since you unlocked it, so we just need to confirm that once — paste your Spelling
+        Quest access code, or a licence key from either app.</p>
+
+      <div className="gate-key">
+        <label htmlFor="proof-key">Spelling Quest code, or a licence key</label>
+        <input id="proof-key" value={typed} placeholder="Paste your code or key" autoComplete="off"
+          onChange={e=>setTyped(e.target.value)}
+          onKeyDown={e=>{ if(e.key==="Enter") check() }}/>
+        <button className="gate-primary" disabled={busy} onClick={check}>{busy?"Checking…":"Confirm"}</button>
+        {problem&&<p className="gate-problem" role="alert">{problem}</p>}
+      </div>
+
+      <p className="gate-small">Don't have either yet?{" "}
+        <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("One Ayah At A Time — confirming my other app")}`}>
+          Email us</a> and we'll sort it out.</p>
+
+      <button type="button" className="signout" onClick={onSignOut}>Sign out or use a different key</button>
+
+      <GateFooter/>
+    </section>
+  </main>;
+}
+
 export default function Home() {
   const [saved,setSaved] = useState<Saved>(empty);
   const [reciters,setReciters] = useState<Reciter[]>(readReciters);
@@ -673,6 +740,10 @@ export default function Home() {
   },[]);
   const gateState = accessState(access);
   const daysLeft = trialLeft(access);
+  // Only set for a $25/$49 key still inside its one-week grace to prove
+  // ownership of another app — null the rest of the time, including once
+  // proof is on file, so this never nags anyone twice.
+  const ownerGraceDaysLeft = ownershipDaysLeft(access.licence);
   // Shown once to anyone starting out, and available again from the footer.
   const [tour,setTour] = useState(false);
   useEffect(()=>{
@@ -1163,10 +1234,15 @@ export default function Home() {
   };
 
   // Everything below this line is for people who may actually use the app.
+  // A $25/$49 key whose ownership grace week has run out, with nothing yet
+  // proving it — asked once, kindly, before the rest of the door opens.
+  if(gateState==="needs-proof") return <OwnershipProofGate
+    onProven={()=>saveAccess({...access,licence:access.licence?{...access.licence,ownerProven:true}:access.licence})}
+    onSignOut={signOut}/>;
   if(!hasAccess(access)) return <Gate
     state={gateState==="ended"?"ended":gateState==="trial-over"?"trial-over":"new"}
     onStartTrial={()=>saveAccess({...access,trialStart:Date.now()})}
-    onUnlock={licence=>saveAccess({...access,licence})}
+    onUnlock={found=>saveAccess({...access,licence:licenceAfterUnlock(found.key,found.productId,access.licence,found.pending)})}
     onCode={code=>saveAccess({...access,code})}/>;
 
   return <main>
@@ -1176,6 +1252,14 @@ export default function Home() {
         <strong>{daysLeft} {daysLeft===1?"day":"days"} left</strong> of your free week — everything is
         unlocked, certificates included.
         <a href={buyHref("family")}>Get it for {PLANS.family.price}</a>
+      </p>}
+      {ownerGraceDaysLeft!==null && <p className="trial-strip">
+        <span>☾</span>
+        Please confirm you own Spelling Quest or Muslim Kids Checklist within{" "}
+        <strong>{ownerGraceDaysLeft} {ownerGraceDaysLeft===1?"day":"days"}</strong> to keep this price —
+        everything stays unlocked until then.
+        <a href={`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("One Ayah At A Time — confirming my other app")}`}>
+          Confirm now</a>
       </p>}
       <header className={`app-titlebar ${onHome?"":"compact"}`}>
         <div className="app-brand"><img className="brand-moon" src={asset("logo-icon.png")} alt="One Ayah At A Time"/><div><p>ONE AYAH AT A TIME</p><h1>Your <span>journey</span></h1></div></div>
