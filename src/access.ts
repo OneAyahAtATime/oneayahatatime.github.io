@@ -91,35 +91,75 @@ export const PLANS: Record<"family" | "second" | "addTwo" | "bundle", Plan> = {
 
 /**
  * Gumroad product IDs for our OTHER apps — Spelling Quest and Muslim Kids
- * Checklist. A valid key from any of these earns *either* discount price — the
- * $25 second-app price and the $89 all-three-apps price both gate on it
- * (Kathryn's rule, 19 Aug: neither is a bare buy link, both require proof).
+ * Checklist, every tier of each. A valid key from any of these earns *either*
+ * discount price — the $25 second-app price and the $89 all-three-apps price
+ * both gate on it (Kathryn's rule, 19 Aug: neither is a bare buy link, both
+ * require proof).
  *
- * Empty for now: those two are not on Gumroad yet. While this list is empty
- * both discount prices are still reachable, by Spelling Quest **access code**
- * (below), which needs no shop at all. Add the product IDs when those apps
- * move across and keys start working too, with no other change.
+ * This is the *softer* of the two lists. Getting it wrong only ever shows
+ * somebody the wrong price; it never opens the app. `OTHER_APP_UNLOCK_IDS`
+ * below is the one that opens the app, and it is deliberately narrower.
+ *
+ * Spelling Quest's four went in 22 Aug 2026, from Kathryn. Its products are
+ * built but not published yet, so no key from them exists to be typed in — the
+ * IDs are final and cost nothing to carry until they are. Muslim Kids
+ * Checklist's are still to come; until they arrive, its owners reach the
+ * discount prices by **access code** (below), which needs no shop at all.
  */
-export const OTHER_APP_PRODUCT_IDS: string[] = [];
+export const OTHER_APP_PRODUCT_IDS: string[] = [
+  // Spelling Quest — spellingquest.gumroad.com
+  "a-vmFHoWlZ86_4FnmjP_0g==",   // $40/yr  Family Access            /l/mlshxz
+  "-Kkbtx5LoSOHKvijvnUBMA==",   // $25/yr  Add one more app         /l/xgcjen
+  "D3bRQBthRlnS8BRwHt-w7A==",   // $49/yr  Add two more apps        /l/miyhub
+  "yL1qS3O7D10z5bb_dFOACg==",   // $89/yr  All Three Apps           /l/ihzywn
+  // Muslim Kids Checklist — not sent yet.
+];
 
 /**
- * Gumroad product IDs for Spelling Quest's and Muslim Kids Checklist's OWN
- * "all three apps" bundle products. Each app sells its bundle from its own
- * account — separate accounts can't share one product — but a bundle bought
- * from *any one* of the three shops has to unlock *all three* apps, or a
- * paying customer opens the wrong app and simply cannot get in, with no error
- * that explains why (Kathryn's rule, 19 Aug, reconciling Spelling Quest's and
- * this app's runbooks, which had drifted onto two different bundle shapes).
+ * Gumroad product IDs from the OTHER two apps that unlock **this** app.
  *
- * Distinct from `OTHER_APP_PRODUCT_IDS` above: that list proves *ownership*
- * of any tier of another app, to unlock the $25/$89 checkout link here. This
- * list is narrower — only the other apps' *bundle* products — and is checked
- * for actually unlocking this app, in `unlockWithKey`.
+ * Each app sells its own four products from its own Gumroad account — separate
+ * accounts cannot share a product — so a family who buys "all three apps", or
+ * "add one more app", from Spelling Quest holds a key issued by *Spelling
+ * Quest's* product. If this app does not know that product ID, that family
+ * pastes a key they genuinely paid for and is simply refused, with no error
+ * that explains why.
  *
- * Empty for now: neither app is on Gumroad yet. Add each one's bundle product
- * ID here once it exists, with no other change needed.
+ * **Which tiers belong here, and why the $25 and $49 do (portfolio policy,
+ * 21 Aug 2026, `Gumroad-Setup-Runbook.md`).** The $89 case is obvious: it grants
+ * all three apps, so every app accepts every other app's $89. The $25 ("add one
+ * more app") and $49 ("add two more apps") are harder, because **the product
+ * does not record which app the buyer picked** — there is no way, from the key
+ * alone, to tell whether a Spelling Quest customer's $25 was meant for this app
+ * or for Muslim Kids Checklist. They are accepted anyway. The two possible
+ * mistakes are not the same size: accepting wrongly costs a little revenue from
+ * somebody who has already paid us for something else, while refusing wrongly
+ * locks a paying family out of an app they bought and loses them silently. The
+ * standing rule across this portfolio is that a failure must never lock a
+ * paying family out.
+ *
+ * A sibling's **$40** is deliberately NOT here: that price buys that app alone
+ * and makes no claim on this one. It still appears in `OTHER_APP_PRODUCT_IDS`
+ * above, where all it does is prove ownership and reveal the cheaper prices.
+ *
+ * Checked in `unlockWithKey`, alongside our own four products.
  */
-export const OTHER_APP_BUNDLE_PRODUCT_IDS: string[] = [];
+export const OTHER_APP_UNLOCK_IDS: string[] = [
+  // Spelling Quest — spellingquest.gumroad.com
+  "-Kkbtx5LoSOHKvijvnUBMA==",   // $25/yr  Add one more app         /l/xgcjen
+  "D3bRQBthRlnS8BRwHt-w7A==",   // $49/yr  Add two more apps        /l/miyhub
+  "yL1qS3O7D10z5bb_dFOACg==",   // $89/yr  All Three Apps           /l/ihzywn
+  // Muslim Kids Checklist — not sent yet. It has no $49 tier at all yet.
+];
+
+/**
+ * The old name for the list above, from when it held only the other apps'
+ * *bundle* products. Kept so nothing that imports it breaks; the list is the
+ * same one and now holds the $25 and $49 tiers too.
+ *
+ * @deprecated use `OTHER_APP_UNLOCK_IDS`
+ */
+export const OTHER_APP_BUNDLE_PRODUCT_IDS = OTHER_APP_UNLOCK_IDS;
 
 export const SUPPORT_EMAIL = "oneayahtime@gmail.com";
 export const SPELLING_QUEST_URL = "https://spellingquest.github.io";
@@ -356,14 +396,20 @@ const isFinished = (p: GumroadPurchase | undefined) =>
   !!p && (!!p.refunded || !!p.disputed || !!p.chargebacked || !!p.subscription_ended_at);
 
 /**
- * Every product a key could plausibly have come from: our own three, plus
- * the other two apps' "all three apps" bundle — since buying the bundle
- * anywhere has to work everywhere.
+ * Every product a key could plausibly have come from: our own four, plus the
+ * tiers of the other two apps that grant this one — their "all three apps",
+ * "add one more app" and "add two more apps". Buying any of those anywhere has
+ * to work everywhere; see `OTHER_APP_UNLOCK_IDS` for why the middle two are in
+ * that list even though they don't say which app was chosen.
+ *
+ * De-duplicated, because the same ID appearing twice would ask Gumroad about it
+ * twice and, on an unlock, spend two of the family's device counts for one
+ * device.
  */
-const ourProducts = () => [
+const ourProducts = () => [...new Set([
   ...Object.values(PLANS).map(p => p.productId),
-  ...OTHER_APP_BUNDLE_PRODUCT_IDS,
-].filter(Boolean);
+  ...OTHER_APP_UNLOCK_IDS,
+].filter(Boolean))];
 
 export type Unlocked =
   | { ok: true; productId: string }

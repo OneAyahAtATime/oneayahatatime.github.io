@@ -253,6 +253,17 @@ type Reciter = { id:string; name:string };
 const RECITERS_KEY="quran-tracker-reciters";
 const defaultReciterName=(position:number)=>`Reciter ${position}`;
 const progressKey=(id:string)=>`quran-tracker-progress-${id}`;
+/**
+ * An id for a newly added reciter.
+ *
+ * Never a number counted off the list: the moment an id can be handed out
+ * twice, a tombstone left by a removal can land on somebody new, and two
+ * devices in the same family can invent the same id for two different people.
+ * The clock keeps ids from separate moments apart, the random tail keeps two
+ * devices in the same second apart, and both together make a reuse
+ * vanishingly unlikely. Ids already saved on a device keep working untouched.
+ */
+const newReciterId=()=>`r${Date.now().toString(36)}${Math.random().toString(36).slice(2,7)}`;
 const MAX_NAME=24;
 
 /**
@@ -763,6 +774,17 @@ export default function Home() {
   const syncing = useRef(false);
   const syncTimer = useRef<number|undefined>(undefined);
   const firstSync = useRef(true);
+  /**
+   * Reciters added on this device since the app was opened.
+   *
+   * Removing a reciter leaves a tombstone on the server against the id it
+   * removed, and that tombstone is permanent — the server keeps `removed` true
+   * for good. So a reciter created here must never be deleted by a tombstone
+   * written before they existed. New ids are random now (see `newReciterId`)
+   * and cannot collide at all; this is the safety net for devices that already
+   * carry a numbered id from before that change.
+   */
+  const madeHere = useRef<Set<string>>(new Set());
   /** What the sync itself last wrote into `saved`, so it can tell its own
       handiwork from a person actually marking a book. */
   const syncWrote = useRef("");
@@ -815,7 +837,11 @@ export default function Home() {
       let list = readReciters();
       for(const row of rows) {
         if(row.removed) {
-          // removed on another device — take them off this one too
+          // removed on another device — take them off this one too. Never
+          // somebody added on this device since it was opened, though: their id
+          // may be one an older version of the app reused, and a tombstone from
+          // long before they existed must not delete them.
+          if(madeHere.current.has(row.reciter_id)) continue;
           if(list.some(r=>r.id===row.reciter_id)) { forgetProgress(row.reciter_id); list = list.filter(r=>r.id!==row.reciter_id); }
           continue;
         }
@@ -836,7 +862,8 @@ export default function Home() {
          named, and tidying that away underneath them would be maddening. */
       const arrived = new Set(rows.filter(r=>!r.removed).map(r=>r.reciter_id));
       if(firstSync.current && arrived.size) {
-        const keep = list.filter(r=>arrived.has(r.id)||reciterHasBeenUsed(r.name,readProgress(r.id,r.name)));
+        const keep = list.filter(r=>arrived.has(r.id)||madeHere.current.has(r.id)
+          ||reciterHasBeenUsed(r.name,readProgress(r.id,r.name)));
         if(keep.length && keep.length!==list.length) {
           for(const gone of list) if(!keep.includes(gone)) forgetProgress(gone.id);
           list = keep;
@@ -849,7 +876,8 @@ export default function Home() {
          being created. */
       const removedHere = new Set(rows.filter(r=>r.removed).map(r=>r.reciter_id));
       for(const r of readReciters())
-        if(!list.some(x=>x.id===r.id) && !removedHere.has(r.id)) list = [...list,r];
+        if(!list.some(x=>x.id===r.id) && (!removedHere.has(r.id) || madeHere.current.has(r.id)))
+          list = [...list,r];
       if(!list.length) list = readReciters();
       writeReciters(list);
 
@@ -873,7 +901,15 @@ export default function Home() {
         const asText = JSON.stringify(fresh);
         if(asText !== JSON.stringify(savedRef.current)) { syncWrote.current = asText; setSaved(fresh) }
       }
-      else if(list.length) setActiveId(list[0].id);
+      else if(list.length) {
+        /* Whoever was on screen is gone, so the app has to move. Close the
+           settings panel on the way: leaving it open would point the nickname
+           field — and the remove button under it — at somebody else entirely,
+           so the next keystroke would rename a reciter nobody meant to touch. */
+        setActiveId(list[0].id);
+        setRenaming(false);
+        setConfirmRemove(false);
+      }
       setSyncLine("ok");
     } catch {
       setSyncLine("later");                 // never let a sync problem interrupt anybody
@@ -941,12 +977,23 @@ export default function Home() {
   };
 
   const addReciter=()=>{
-    // Ids must stay unique for the lifetime of the browser's storage, so the
-    // counter is based on what already exists rather than on the list length.
+    /* An id has to be unique across the whole family, for ever — not just
+       across the reciters standing in front of us right now.
+
+       It used to be the next free number ("r3", "r4"), counted from the list on
+       this device. That went wrong twice over. Removing a reciter leaves a
+       permanent tombstone on the server against their id, and the number was
+       handed straight back out again, so the next reciter added inherited a
+       tombstone and was deleted a couple of seconds later — taking the open
+       nickname field with them, onto whoever the app fell back to, so the name
+       being typed landed on the first reciter in the list instead. And two
+       devices counting separately both reach "r2" for two different people, who
+       then merge into one. A random id can do neither. */
     const taken=new Set(reciters.map(r=>r.id));
-    let n=reciters.length+1;
-    while(taken.has(`r${n}`)) n++;
-    const created:Reciter={ id:`r${n}`, name:defaultReciterName(reciters.length+1) };
+    let id=newReciterId();
+    while(taken.has(id)) id=newReciterId();
+    const created:Reciter={ id, name:defaultReciterName(reciters.length+1) };
+    madeHere.current.add(id);
     commitReciters([...reciters,created]);
     setActiveId(created.id);
     setRenaming(true);
