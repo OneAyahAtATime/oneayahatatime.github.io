@@ -835,6 +835,14 @@ export default function Home() {
     try {
       const rows = await pullReciters(fp);
       let list = readReciters();
+      /* The names as they stood when this sync started. A sync takes a snapshot
+         of the list, then goes away over the network and comes back to write it
+         out — and somebody typing a nickname in that gap would have had it
+         quietly reverted to whatever the snapshot said. Keeping the "before"
+         names lets the write-back tell a name the person just typed (changed
+         since the snapshot, so theirs) from a name this sync worked out
+         (unchanged on the device, so ours to set). */
+      const namesAtStart = new Map(list.map(r=>[r.id,r.name]));
       for(const row of rows) {
         if(row.removed) {
           // removed on another device — take them off this one too. Never
@@ -861,11 +869,12 @@ export default function Home() {
          untouched reciter is one somebody has just this moment added and not yet
          named, and tidying that away underneath them would be maddening. */
       const arrived = new Set(rows.filter(r=>!r.removed).map(r=>r.reciter_id));
+      const tidiedAway = new Set<string>();
       if(firstSync.current && arrived.size) {
         const keep = list.filter(r=>arrived.has(r.id)||madeHere.current.has(r.id)
           ||reciterHasBeenUsed(r.name,readProgress(r.id,r.name)));
         if(keep.length && keep.length!==list.length) {
-          for(const gone of list) if(!keep.includes(gone)) forgetProgress(gone.id);
+          for(const gone of list) if(!keep.includes(gone)) { forgetProgress(gone.id); tidiedAway.add(gone.id); }
           list = keep;
         }
       }
@@ -873,12 +882,36 @@ export default function Home() {
       /* Anyone added while this sync was in the air belongs in the list too.
          Without this, the snapshot taken at the top would be written back over
          them and a brand-new reciter would vanish a couple of seconds after
-         being created. */
+         being created.
+
+         Not the placeholder the tidy-up just cleared, though: storage still
+         holds it at this point, so without `tidiedAway` this loop put it
+         straight back — which is why a phone joining a family kept showing a
+         stray "Reciter 1" next to everybody real, shuffled to the end of the
+         row. */
       const removedHere = new Set(rows.filter(r=>r.removed).map(r=>r.reciter_id));
       for(const r of readReciters())
-        if(!list.some(x=>x.id===r.id) && (!removedHere.has(r.id) || madeHere.current.has(r.id)))
+        if(!list.some(x=>x.id===r.id) && !tidiedAway.has(r.id)
+          && (!removedHere.has(r.id) || madeHere.current.has(r.id)))
           list = [...list,r];
       if(!list.length) list = readReciters();
+      /* Anything typed while this sync was in the air wins over the snapshot —
+         see `namesAtStart`. A name the device has not touched since the sync
+         began is left alone, so a placeholder that picked up a real family
+         member's nickname from another device still keeps it.
+
+         Applied twice, because there are two moments this sync hands its list
+         back to the app — once to storage here, and once to the screen after
+         the pushes below, which are themselves a network round trip somebody
+         can type straight through. */
+      const keepTypedNames = (l:Reciter[]) => {
+        const now = readReciters();
+        return l.map(r=>{
+          const mine = now.find(x=>x.id===r.id);
+          return mine && mine.name!==namesAtStart.get(r.id) ? {...r,name:mine.name} : r;
+        });
+      };
+      list = keepTypedNames(list);
       writeReciters(list);
 
       for(const r of list) {
@@ -889,6 +922,9 @@ export default function Home() {
           workingOn:mine.workingOn, practiceDays:mine.practiceDays, honorific:mine.honorific ?? "Hafizah" });
       }
 
+      const settled = keepTypedNames(list);
+      if(JSON.stringify(settled)!==JSON.stringify(list)) writeReciters(settled);
+      list = settled;
       setReciters(list);
       if(list.some(r=>r.id===activeId)) {
         /* Only disturb the screen if something actually came back different.
