@@ -26,10 +26,14 @@ const surahs: Surah[] = [
 ].map(([n,ar,en]) => ({ n: n as number, ar: ar as string, en: en as string }));
 
 // Juz names are taken from the artwork, so the app and the pages always agree.
-// Only the Juz 19-30 pages print a name; 1-18 have none, so none is shown.
-const rawJuz: [number, number[], string?][] = [
-  [1,[1,2]],[2,[2]],[3,[3]],[4,[4]],[5,[4]],[6,[5]],[7,[6]],[8,[7]],[9,[8]],[10,[9]],
-  [11,[10,11]],[12,[12]],[13,[13,14]],[14,[15,16]],[15,[17,18]],[16,[19,20]],[17,[21,22]],[18,[23,24,25]],
+// Every page prints its Juz names on the banner, in the artwork's own spelling.
+const rawJuz: [number, number[], string][] = [
+  [1,[1,2],"Alif Lam Mim"],[2,[2],"Sayaqool"],[3,[3],"Tilkal Rusul"],[4,[4],"Lan Tana Loo"],
+  [5,[4],"Wal Mohsaant"],[6,[5],"La Yuhibbullah"],
+  [7,[6],"Wa Iza Sami’u"],[8,[7],"Wa Lau Annana"],[9,[8],"Qalal Mala’u"],[10,[9],"Wa’lamu"],
+  [11,[10,11],"Ya’taziruna"],[12,[12],"Wa Mamin Dabbatin"],[13,[13,14],"Wa Ma Ubarri’u"],
+  [14,[15,16],"Rubama"],[15,[17,18],"Subhanalladhi"],[16,[19,20],"Qal Alam"],[17,[21,22],"Iqtaraba"],
+  [18,[23,24,25],"Qad Aflaha"],
   [19,[26,27],"Wa Qalalladhina"],[20,[28,29],"A’man Khalaqa"],[21,[30,31,32,33],"Utlu Ma Uhiya"],[22,[34,35],"Wa Manyaqnut"],
   [23,[36,37,38,39],"Wa Mali"],[24,[40,41],"Faman Azlam"],[25,[42,43,44,45],"Ilayhi Yuraddu"],
   [26,[46,47,48,49,50,51],"Ha-Mim"],[27,[52,53,54,55,56,57],"Qala Fama Khatbukum"],
@@ -37,23 +41,16 @@ const rawJuz: [number, number[], string?][] = [
   [30,Array.from({length:37},(_,i)=>i+78),"‘Amma"],
 ];
 /**
- * Every tile carries the same yellow line the artwork prints on that page.
+ * Every tile carries the Juz name the artwork prints on that page's banner.
  *
- * Juz 19-30 print a Juz name on the banner, so that name is used. Juz 1-18
- * print no Juz name — the page shows the surahs on the shelf instead — so the
- * tile lists those surahs, in the artwork's own spelling. Where a Juz carries
- * on a surah that began earlier, the page says "Al-Baqarah continues"; the
- * tile says the same.
+ * Until the 20 August 2026 redraw, the Juz 1-18 pages printed no name and the
+ * tiles listed the surahs on the shelf instead. Those three pages now carry
+ * names like every other page, so all thirty tiles read the same way. The
+ * surahs are still on the page itself, where they belong.
+ *
+ * Read a name off the artwork before changing it here. Never from memory.
  */
-const juzs: Juz[] = (() => {
-  const started = new Set<number>();
-  return rawJuz.map(([n,inJuz,label])=>{
-    const carriedOver = inJuz.length===1 && started.has(inJuz[0]);
-    for(const s of inJuz) started.add(s);
-    const named = inJuz.map(s=>surahs[s-1].en);
-    return { n, surahs:inJuz, label: label ?? (carriedOver?`${named[0]} continues`:named.join(" · ")) };
-  });
-})();
+const juzs: Juz[] = rawJuz.map(([n,surahsInJuz,label])=>({ n, surahs:surahsInJuz, label }));
 const pageGroups = [[1,6],[7,13],[14,18],[19,22],[23,25],[26,27],[28,29],[30,30]] as const;
 const colorOptions = [
   {value:"#e05287",label:"Rose"},{value:"#f06f61",label:"Coral"},{value:"#ed8f3d",label:"Orange"},{value:"#f2c94c",label:"Golden yellow"},{value:"#65b96e",label:"Leaf green"},{value:"#2bb3a3",label:"Aqua"},{value:"#43b8d1",label:"Sky blue"},{value:"#4f8bd8",label:"Blue"},{value:"#7d5bd1",label:"Purple"},{value:"#b765c4",label:"Orchid"},
