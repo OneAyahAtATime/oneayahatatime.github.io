@@ -366,6 +366,11 @@
   padding-top:12px;border-top:1px solid #5b3d95}
 .legal-links a{color:#c9b6ea;font-size:.72rem;text-decoration:underline;text-underline-offset:3px}
 .legal-links a:hover{color:#ffe08a}
+/* The one link in this row that isn't a policy page. Gold and unadorned so it
+   reads as an offer rather than fine print, without turning the row into a
+   banner. Only rendered during the free week — see GateFooter. */
+.legal-links .buy-link{color:#ffe08a;font-weight:800;text-decoration:none}
+.legal-links .buy-link:hover{text-decoration:underline}
 
 /* ---- The free week, while it lasts --------------------------------------- */
 .trial-strip{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px;margin:0 auto 14px;

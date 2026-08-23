@@ -600,8 +600,14 @@ function Gate({ state, onStartTrial, onUnlock, onCode }:{
 }
 
 /** The links a shop is expected to carry, on every screen someone can reach. */
-function GateFooter() {
+/**
+ * `buy` is only ever true during the free week. Somebody who has already paid —
+ * or who was handed an access code — should not be shown a "Buy now" link at
+ * the bottom of the app they already own.
+ */
+function GateFooter({ buy }:{ buy?:boolean }) {
   return <p className="legal-links">
+    {buy && <a className="buy-link" href={buyHref("family")}>Buy now</a>}
     <a href={asset("about.html")}>About</a>
     <a href={asset("schools.html")}>Schools</a>
     <a href={asset("contact.html")}>Contact</a>
@@ -1549,7 +1555,7 @@ export default function Home() {
         : syncLine==="working" ? <>Catching up with your other devices…</>
         : syncLine==="offline" ? <>No connection right now. Your books are safe here and will catch up later.</>
         : <>Your books are safe here. They will catch up with your other devices shortly.</>}</small>
-      <GateFooter/>
+      <GateFooter buy={gateState==="trial"}/>
     </footer>
   </main>
 }
