@@ -100,11 +100,11 @@ export const PLANS: Record<"family" | "second" | "addTwo" | "bundle", Plan> = {
  * somebody the wrong price; it never opens the app. `OTHER_APP_UNLOCK_IDS`
  * below is the one that opens the app, and it is deliberately narrower.
  *
- * Spelling Quest's four went in 22 Aug 2026, from Kathryn. Its products are
- * built but not published yet, so no key from them exists to be typed in — the
- * IDs are final and cost nothing to carry until they are. Muslim Kids
- * Checklist's are still to come; until they arrive, its owners reach the
- * discount prices by **access code** (below), which needs no shop at all.
+ * Spelling Quest's four went in 22 Aug 2026 and its shop is published. Muslim
+ * Kids Checklist's three went in 23 Aug from `Universal Files/PRODUCT-IDS.md`,
+ * which is the canonical list — every one of them verified by character code
+ * against that file, never read by eye. It has no $49 tier yet, so there are
+ * three and not four.
  */
 export const OTHER_APP_PRODUCT_IDS: string[] = [
   // Spelling Quest — spellingquest.gumroad.com
@@ -112,7 +112,11 @@ export const OTHER_APP_PRODUCT_IDS: string[] = [
   "-Kkbtx5LoSOHKvijvnUBMA==",   // $25/yr  Add one more app         /l/xgcjen
   "D3bRQBthRlnS8BRwHt-w7A==",   // $49/yr  Add two more apps        /l/miyhub
   "yL1qS3O7D10z5bb_dFOACg==",   // $89/yr  All Three Apps           /l/ihzywn
-  // Muslim Kids Checklist — not sent yet.
+  // Muslim Kids Checklist — muslimkidschecklist.gumroad.com
+  "7e8uIMFPPfgCWGpda9OIsQ==",   // $40/yr  Family Access            /l/sgpcb
+  "MDGCYGOYZKbezd3K0JXnfg==",   // $25/yr  Add one more app         /l/mtdviu
+  "32mLygvh97ZA0_hkLiqHSA==",   // $89/yr  All Three Apps           /l/bkvfvr
+  // Its $49 tier does not exist yet, so there is nothing to list.
 ];
 
 /**
@@ -149,7 +153,10 @@ export const OTHER_APP_UNLOCK_IDS: string[] = [
   "-Kkbtx5LoSOHKvijvnUBMA==",   // $25/yr  Add one more app         /l/xgcjen
   "D3bRQBthRlnS8BRwHt-w7A==",   // $49/yr  Add two more apps        /l/miyhub
   "yL1qS3O7D10z5bb_dFOACg==",   // $89/yr  All Three Apps           /l/ihzywn
-  // Muslim Kids Checklist — not sent yet. It has no $49 tier at all yet.
+  // Muslim Kids Checklist — muslimkidschecklist.gumroad.com
+  "MDGCYGOYZKbezd3K0JXnfg==",   // $25/yr  Add one more app         /l/mtdviu
+  "32mLygvh97ZA0_hkLiqHSA==",   // $89/yr  All Three Apps           /l/bkvfvr
+  // Its $40 belongs in the ownership list only, and its $49 does not exist yet.
 ];
 
 /**
