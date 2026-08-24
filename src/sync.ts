@@ -48,6 +48,22 @@ export type RemoteReciter = {
   working_on: Record<string, unknown>;
   practice_days: string[];
   honorific: string;
+  /**
+   * When a person last typed this reciter's nickname or chose their honorific,
+   * in milliseconds. Those two fields are the reciter's profile, they are edited
+   * together in one panel, and they share one stamp.
+   *
+   * Everything else in this record has a rule for who wins when two devices
+   * disagree — books union, statuses go by `status_at`, dates are never unset.
+   * The profile had none, so each device simply re-asserted its own copy every
+   * sync and two devices that disagreed overwrote each other for ever. This is
+   * that missing rule.
+   *
+   * 0 means never edited by a person: a device still on an older build, or a
+   * removal push. Those can never overwrite a stamped value, so the first
+   * upgraded device to be given the right name wins over every stale one.
+   */
+  profile_at: number;
   removed: boolean;
 };
 
@@ -87,7 +103,8 @@ export const pushReciter = (fp: string, row: {
   id: string; name: string;
   colored: Record<string,string>; statuses: Record<string,string>; statusAt: Record<string,number>;
   dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>;
-  workingOn: Record<string,unknown>; practiceDays: string[]; honorific: string; removed?: boolean;
+  workingOn: Record<string,unknown>; practiceDays: string[]; honorific: string;
+  profileAt?: number; removed?: boolean;
 }) => rpc<RemoteReciter>("push_reciter", {
   p_family_hash: fp,
   p_reciter_id: row.id,
@@ -101,6 +118,9 @@ export const pushReciter = (fp: string, row: {
   p_working_on: row.workingOn || {},
   p_practice_days: row.practiceDays || [],
   p_honorific: row.honorific === "Hafiz" ? "Hafiz" : "Hafizah",
+  // A removal push leaves this at 0 on purpose: it sends an empty nickname and a
+  // default honorific, and must never be read as somebody renaming anybody.
+  p_profile_at: row.profileAt || 0,
   p_removed: !!row.removed,
 });
 

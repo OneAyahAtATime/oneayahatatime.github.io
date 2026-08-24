@@ -225,8 +225,8 @@ function JourneyIcon({status,className="",style}:{status:RevisionStatus;classNam
  * the whole Qur'an was finished. `honorific` is only used on that certificate.
  */
 type Honorific = "Hafizah" | "Hafiz";
-type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific };
-const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah" };
+type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific; profileAt?:number };
+const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah", profileAt:0 };
 
 /**
  * When each book's status was last changed, as a plain millisecond stamp.
@@ -318,6 +318,10 @@ function normalize(raw:unknown,name:string):Saved {
     statusAt:partial.statusAt??{},
     practiceDays:partial.practiceDays??[],
     honorific:partial.honorific==="Hafiz"?"Hafiz":"Hafizah",
+    // 0 means "nobody has ever typed this reciter's name or honorific on this
+    // device" — a save written before the stamp existed counts as never edited,
+    // so any real edit anywhere in the family beats it. See `merge`.
+    profileAt:typeof partial.profileAt==="number"&&partial.profileAt>0?partial.profileAt:0,
   };
 }
 
@@ -952,10 +956,33 @@ export default function Home() {
       else statuses[key] = value as RevisionStatus;
     }
     for(const key of Object.keys(statuses)) if(!colored[key]) colored[key] = theirs.colored?.[key] ?? color;
+    /* Who this reciter *is* — their nickname and the word on their certificate.
+     *
+     * Both are edited in one panel, by one person, in one sitting, so they share
+     * one stamp: `profileAt`, the moment somebody last typed either of them.
+     *
+     * Before this existed neither field had any rule for who wins. The name was
+     * simply whatever arrived last, and every device re-asserted its own copy on
+     * every sync — so two devices that disagreed overwrote each other for ever,
+     * a few seconds apart, and a rename never travelled anywhere. A family
+     * watched one child's name keep turning into another person's. The honorific
+     * was worse in its own way: "Hafiz" beat "Hafizah" and could never be beaten
+     * back, so one wrong tap on any device was permanent.
+     *
+     * A stamp of 0 means "never edited by a person" — either a device still on
+     * the old build, or a removal push, which sends an empty name and default
+     * honorific and must never be mistaken for somebody renaming anyone. */
+    const theirsAt = theirs.profile_at ?? 0, mineAt = mine.profileAt ?? 0;
+    const takeTheirs = theirsAt > mineAt && !!theirs.nickname;
     return {
       ...mine,
-      // A name typed on this device wins over a placeholder from another.
-      name: /^Reciter \d+$/.test(mine.name) && theirs.nickname ? theirs.nickname : mine.name,
+      // The newer edit wins. Failing that, a real name still beats an untouched
+      // placeholder, so a phone joining a family picks up who everybody is.
+      name: takeTheirs ? theirs.nickname
+        : (/^Reciter \d+$/.test(mine.name) && theirs.nickname ? theirs.nickname : mine.name),
+      honorific: takeTheirs ? (theirs.honorific==="Hafiz" ? "Hafiz" : "Hafizah")
+        : (mine.honorific ?? "Hafizah"),
+      profileAt: Math.max(mineAt, theirsAt),
       colored, statuses, statusAt,
       // Notes and dates merge, with whatever is being typed here left alone.
       dates: {...theirs.dates, ...mine.dates},
@@ -963,8 +990,6 @@ export default function Home() {
       ayahs: {...theirs.ayahs, ...mine.ayahs},
       workingOn: {...(theirs.working_on as Record<string,CurrentWork>), ...mine.workingOn},
       practiceDays: Array.from(new Set([...(theirs.practice_days||[]), ...(mine.practiceDays||[])])).sort(),
-      honorific: mine.honorific && mine.honorific!=="Hafizah" ? mine.honorific
-        : (theirs.honorific==="Hafiz" ? "Hafiz" : mine.honorific ?? "Hafizah"),
     };
   };
 
@@ -1061,7 +1086,8 @@ export default function Home() {
         if(!reciterHasBeenUsed(r.name,mine)) continue;    // don't send placeholders
         await pushReciter(fp,{ id:r.id, name:r.name, colored:mine.colored, statuses:outgoingStatuses(mine),
           statusAt:mine.statusAt||{}, dates:mine.dates, favorites:mine.favorites, ayahs:mine.ayahs,
-          workingOn:mine.workingOn, practiceDays:mine.practiceDays, honorific:mine.honorific ?? "Hafizah" });
+          workingOn:mine.workingOn, practiceDays:mine.practiceDays, honorific:mine.honorific ?? "Hafizah",
+          profileAt:mine.profileAt ?? 0 });
       }
 
       const settled = keepTypedNames(list);
@@ -1169,7 +1195,10 @@ export default function Home() {
     if(!target) return;
     const capped=value.slice(0,MAX_NAME);
     commitReciters(reciters.map(r=>r.id===target?{...r,name:capped}:r));
-    setSaved(s=>({...s,name:capped}));
+    // Stamped here and nowhere else: only a person typing counts as an edit.
+    // If a sync write stamped too, two devices would race with timestamps
+    // instead of without them and nothing would have been gained. See `merge`.
+    setSaved(s=>({...s,name:capped,profileAt:Date.now()}));
   };
 
   const finalizeReciterName=()=>{
@@ -1178,7 +1207,7 @@ export default function Home() {
     const cleaned=cleanName(reciter,defaultReciterName(activeIndex+1));
     if(cleaned===reciter) return;
     commitReciters(reciters.map(r=>r.id===target?{...r,name:cleaned}:r));
-    setSaved(s=>({...s,name:cleaned}));
+    setSaved(s=>({...s,name:cleaned,profileAt:Date.now()}));
   };
 
   const addReciter=()=>{
@@ -1256,7 +1285,11 @@ export default function Home() {
     || juzs.map(j=>saved.dates[j.n]).filter(Boolean).sort().pop()
     || localDay();
   const honorific = saved.honorific ?? "Hafizah";
-  const setHonorific = (value:Honorific) => setSaved(s=>({...s,honorific:value}));
+  /* Shares the nickname's stamp: both are this reciter's profile, both are set
+     by a person in the same panel. "Hafiz" used to win over "Hafizah" for ever
+     on any device that had ever sent it — one wrong tap was permanent, on
+     everybody's phone. Now the later tap wins, whichever word it chose. */
+  const setHonorific = (value:Honorific) => setSaved(s=>({...s,honorific:value,profileAt:Date.now()}));
   const currentRange=pageGroups[activeGroup??0];
   const currentJuzs=juzs.filter(j=>j.n>=currentRange[0]&&j.n<=currentRange[1]);
   const rangeLabel=currentRange[0]===currentRange[1]?`Juz ${currentRange[0]}`:`Juz ${currentRange[0]}–${currentRange[1]}`;
