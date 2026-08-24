@@ -326,8 +326,24 @@ const cleanName=(value:string,fallback:string)=>value.trim().slice(0,MAX_NAME)||
 /**
  * Carries over anything saved by the earlier two-slot version, which numbered
  * its reciters "Learner 1" and "Learner 2". A slot is kept only if it was
- * actually used; an untouched second slot is dropped, because the app now
+ * actually used — either somebody coloured a book in it, or somebody typed a
+ * name over "Learner N". An untouched slot is dropped, because the app now
  * starts with a single reciter and lets families add more.
+ *
+ * ⚠️ `slot > 0` used to be the condition on that test, so **slot 0 was carried
+ * unconditionally** — on every device, including ones that had never seen the
+ * two-slot version and had nothing to migrate. The result was that every phone,
+ * tablet and laptop in the world named its very first reciter `s0`, and the
+ * `readReciters` fallback below it (which did mint an id) was never reached.
+ *
+ * Since a family's records are filed on the server by `(family fingerprint,
+ * reciter id)`, that made a mother's first reciter and her son's first reciter
+ * literally the same row. Their books merged into one pile, whichever nickname
+ * was typed most recently won, and removing "one of them" wrote a permanent
+ * tombstone across both. It cost a real family a 116-book record.
+ *
+ * Two people are only ever the same person if they share an id. Never hand out
+ * an id that isn't earned.
  */
 function migrateFromSlots():Reciter[] {
   const carried:Reciter[] = [];
@@ -337,13 +353,13 @@ function migrateFromSlots():Reciter[] {
   for(let slot=0; slot<2; slot++) {
     const progress = localStorage.getItem(`quran-tracker-slot-${slot}`);
     const wasUsed = !!progress && progress !== "null" && progress !== "{}";
-    if(slot>0 && !wasUsed) continue;
-
     const raw = Array.isArray(storedNames) ? storedNames[slot] : null;
+    const wasNamed = typeof raw==="string" && !!raw.trim() && !/^Learner \d+$/.test(raw.trim());
+    if(!wasUsed && !wasNamed) continue;
+
     const preset = defaultReciterName(carried.length+1);
     // "Learner 2" becomes "Reciter 2"; anything the family typed is kept as-is.
-    const name = typeof raw==="string" && raw.trim() && !/^Learner \d+$/.test(raw.trim())
-      ? cleanName(raw,preset) : preset;
+    const name = wasNamed ? cleanName(raw as string,preset) : preset;
 
     const id = `s${slot}`;
     carried.push({ id, name });
@@ -352,21 +368,44 @@ function migrateFromSlots():Reciter[] {
   return carried;
 }
 
+/**
+ * The first reciter on a device that has never been opened before.
+ *
+ * This used to be the fixed id `"r1"`, and that was the same fault `addReciter`
+ * warns about, sitting one line higher up: an id counted rather than minted.
+ * Every device in the world handed its first reciter `"r1"`, so a mother
+ * setting the app up on her phone and a child already using it on a tablet were
+ * filed under one id — one row on the server, two different people. Their books
+ * merged, whichever name was typed last won, and removing "one of them" left a
+ * permanent tombstone over both.
+ *
+ * Minted once and written straight to storage, because `readReciters` is called
+ * several times in a single sync and every call has to name the same person.
+ * A device that already carries `"r1"` keeps it untouched — the id it has is the
+ * id the server knows.
+ */
+let blockedStorageFallback:Reciter[]|null = null;
+function freshReciters():Reciter[] {
+  if(!blockedStorageFallback) blockedStorageFallback = [{ id:newReciterId(), name:defaultReciterName(1) }];
+  return blockedStorageFallback;
+}
+
 function readReciters():Reciter[] {
-  const fresh = [{ id:"r1", name:defaultReciterName(1) }];
   try {
     const stored = localStorage.getItem(RECITERS_KEY);
     if(!stored) {
       const carried = migrateFromSlots();
-      return carried.length ? carried : fresh;
+      const list = carried.length ? carried : freshReciters();
+      writeReciters(list);
+      return list;
     }
     const parsed = JSON.parse(stored);
-    if(!Array.isArray(parsed)) return fresh;
+    if(!Array.isArray(parsed)) return freshReciters();
     const valid = parsed
       .filter((r):r is Reciter => !!r && typeof r.id==="string" && typeof r.name==="string")
       .map((r,i)=>({ id:r.id, name:cleanName(r.name,defaultReciterName(i+1)) }));
-    return valid.length ? valid : fresh;
-  } catch { return fresh; }
+    return valid.length ? valid : freshReciters();
+  } catch { return freshReciters(); }
 }
 
 function writeReciters(reciters:Reciter[]):void {
@@ -770,6 +809,23 @@ export default function Home() {
   const [activeId,setActiveId] = useState(()=>readReciters()[0].id);
   const [renaming,setRenaming] = useState(false);
   const [confirmRemove,setConfirmRemove] = useState(false);
+  /**
+   * Who the open settings panel belongs to — pinned the moment it opens.
+   *
+   * The nickname field and the remove button both used to act on whoever was
+   * active *right now*, and a sync landing mid-edit can move that (see the
+   * "whoever was on screen is gone" branch in syncNow). So a name being typed
+   * could land on a different reciter, and "Remove this reciter" could tombstone
+   * one nobody was looking at. Both of those happened to a real family: a record
+   * of 116 books was renamed to somebody else and then removed.
+   *
+   * Pinning makes that impossible. If the pin and the active reciter ever come
+   * apart, the panel closes and the keystroke is dropped — losing a letter is
+   * nothing beside renaming or deleting the wrong child.
+   */
+  const editingId = useRef<string|null>(null);
+  const openSettings = (id:string)=>{ editingId.current=id; setRenaming(true); setConfirmRemove(false); };
+  const closeSettings = ()=>{ editingId.current=null; setRenaming(false); setConfirmRemove(false); };
   const [loadedId,setLoadedId] = useState<string|null>(null);
   const [syncStatus,setSyncStatus] = useState("Loading…");
   const activeIndex = Math.max(0,reciters.findIndex(r=>r.id===activeId));
@@ -1029,6 +1085,7 @@ export default function Home() {
            field — and the remove button under it — at somebody else entirely,
            so the next keystroke would rename a reciter nobody meant to touch. */
         setActiveId(list[0].id);
+        editingId.current = null;
         setRenaming(false);
         setConfirmRemove(false);
       }
@@ -1075,6 +1132,17 @@ export default function Home() {
     if(!writeProgress(activeId,saved)) setSyncStatus("This browser won’t let the app save — check its privacy settings");
   },[saved,activeId,loadedId]);
 
+  /* If the reciter on screen changes while the settings panel is open — a sync
+     bringing the family in, or one device removing somebody another device was
+     looking at — the panel must not simply re-point itself at whoever the app
+     fell back to. It closes. `editTarget` refuses the write in the same moment;
+     this is what stops the panel *looking* like it belongs to the new reciter in
+     the meantime. */
+  useEffect(()=>{
+    if(editingId.current!==null && editingId.current!==activeId) closeSettings();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[activeId,reciters]);
+
   const commitReciters=(next:Reciter[])=>{ setReciters(next); writeReciters(next); };
 
   // While someone is actively typing a name, only the length cap is enforced —
@@ -1085,16 +1153,31 @@ export default function Home() {
   // (making it look like spaces couldn't be typed between a first and middle
   // name) and would silently overwrite an emptied field with "Reciter 2"
   // mid-edit, which then sat ahead of whatever was typed next.
+  /* The id the settings panel was opened against, but only while it still
+     matches who is on screen. Null means a sync moved the ground underneath the
+     panel — so nothing is written, and the panel shuts rather than pointing its
+     nickname field and its remove button at a stranger. */
+  const editTarget=()=>{
+    const pinned=editingId.current;
+    if(pinned===null) return null;
+    if(pinned!==activeId||!reciters.some(r=>r.id===pinned)) { closeSettings(); return null; }
+    return pinned;
+  };
+
   const renameReciter=(value:string)=>{
+    const target=editTarget();
+    if(!target) return;
     const capped=value.slice(0,MAX_NAME);
-    commitReciters(reciters.map(r=>r.id===activeId?{...r,name:capped}:r));
+    commitReciters(reciters.map(r=>r.id===target?{...r,name:capped}:r));
     setSaved(s=>({...s,name:capped}));
   };
 
   const finalizeReciterName=()=>{
+    const target=editTarget();
+    if(!target) return;
     const cleaned=cleanName(reciter,defaultReciterName(activeIndex+1));
     if(cleaned===reciter) return;
-    commitReciters(reciters.map(r=>r.id===activeId?{...r,name:cleaned}:r));
+    commitReciters(reciters.map(r=>r.id===target?{...r,name:cleaned}:r));
     setSaved(s=>({...s,name:cleaned}));
   };
 
@@ -1118,25 +1201,31 @@ export default function Home() {
     madeHere.current.add(id);
     commitReciters([...reciters,created]);
     setActiveId(created.id);
-    setRenaming(true);
-    setConfirmRemove(false);
+    openSettings(created.id);
   };
 
   const removeReciter=()=>{
+    const going=editTarget();
+    if(!going) return;
     if(reciters.length<2) return;
-    const remaining=reciters.filter(r=>r.id!==activeId);
-    const going=activeId;
-    // Tell the family's other devices, so a reciter removed here doesn't come
-    // back from a phone that still has them. The removal sticks on the server.
+    const remaining=reciters.filter(r=>r.id!==going);
+    /* Tell the family's other devices, so a reciter removed here doesn't come
+       back from a phone that still has them.
+
+       This is the single most destructive thing the app can do, and it cannot be
+       taken back from inside the app: the server keeps `removed = removed OR
+       incoming`, so once a tombstone is set no later push can clear it, on any
+       device. The record's books are kept in the row and can be brought back by
+       hand — but nobody using the app can do that. Which is why the confirmation
+       above this counts the books out loud before offering the button. */
     const fp = familyFingerprint(access);
     if(fp) pushReciter(fp,{ id:going, name:"", colored:{}, statuses:{}, statusAt:{}, dates:{},
       favorites:{}, ayahs:{}, workingOn:{}, practiceDays:[], honorific:"Hafizah", removed:true })
       .catch(()=>{ /* it will be sent again on the next sync */ });
-    forgetProgress(activeId);
+    forgetProgress(going);
     commitReciters(remaining);
     setActiveId(remaining[Math.min(activeIndex,remaining.length-1)].id);
-    setRenaming(false);
-    setConfirmRemove(false);
+    closeSettings();
   };
 
   const completedBooks = Object.keys(saved.colored).length;
@@ -1450,11 +1539,11 @@ export default function Home() {
         <div className="child-switch" aria-label="Choose a reciter">
           <span>Whose journey?</span>
           <div>
-            {reciters.map(r=><button key={r.id} className={activeId===r.id?"selected":""} onClick={()=>{if(renaming)finalizeReciterName();setActiveId(r.id);setRenaming(false);setConfirmRemove(false)}}>{r.name}</button>)}
+            {reciters.map(r=><button key={r.id} className={activeId===r.id?"selected":""} onClick={()=>{if(renaming)finalizeReciterName();closeSettings();setActiveId(r.id)}}>{r.name}</button>)}
             <button type="button" className="add-reciter" onClick={addReciter} title="Add another reciter">+ Add reciter</button>
           </div>
           {renaming
-            ? <form className="learner-rename" onSubmit={e=>{e.preventDefault();finalizeReciterName();setRenaming(false);setConfirmRemove(false)}}>
+            ? <form className="learner-rename" onSubmit={e=>{e.preventDefault();finalizeReciterName();closeSettings()}}>
                 <label htmlFor="reciter-name">Nickname</label>
                 <input id="reciter-name" autoFocus maxLength={MAX_NAME} value={reciter}
                   onChange={e=>renameReciter(e.target.value)}
@@ -1474,11 +1563,19 @@ export default function Home() {
                       aria-pressed={honorific===option} onClick={()=>setHonorific(option)}>{option}</button>)}
                   <small>Hafizah for a girl, Hafiz for a boy.</small>
                 </fieldset>
+                {/* The count is said out loud on purpose. "Remove {name} and their
+                    books?" reads like tidying up an empty slot, and it is the same
+                    sentence whether the reciter has never been touched or has years
+                    of memorization behind them. Nothing in the app can undo this. */}
                 {reciters.length>1&&(confirmRemove
-                  ? <p className="remove-confirm">Remove {reciter} and their books? <button type="button" className="danger" onClick={removeReciter}>Yes, remove</button> <button type="button" onClick={()=>setConfirmRemove(false)}>Keep</button></p>
+                  ? <p className="remove-confirm">
+                      <span className="remove-warning">Remove <b>{reciter}</b>{completedBooks>0&&<> and the <b>{completedBooks} {completedBooks===1?"book":"books"}</b> colored in so far</>}? This happens on every device in your family and <b>cannot be undone</b>.</span>
+                      <button type="button" className="danger" onClick={removeReciter}>Yes, remove {reciter}</button>
+                      <button type="button" onClick={()=>setConfirmRemove(false)}>Keep {reciter}</button>
+                    </p>
                   : <button type="button" className="remove-reciter" onClick={()=>setConfirmRemove(true)}>Remove this reciter</button>)}
               </form>
-            : <button type="button" className="rename-learner" onClick={()=>setRenaming(true)}>{reciter}’s settings</button>}
+            : <button type="button" className="rename-learner" onClick={()=>openSettings(activeId)}>{reciter}’s settings</button>}
           <small><i className={syncStatus.includes("won’t let")?"error":""}/> {
             syncStatus.includes("won’t let") ? syncStatus
             : syncLine==="ok"      ? "Saved on all your devices"
@@ -1881,6 +1978,21 @@ function ArtCanvas({juzs,saved}:{juzs:Juz[];saved:Saved}) {
     const paint=()=>{
       const w=img.naturalWidth,h=img.naturalHeight;
       if(!w||!h) return;
+      /*
+       * Every vertical percentage in `bookRects` / `targetedPaintRects` is measured
+       * against the FULL, untrimmed page — the one that still carried the printable
+       * completion strip along the bottom. The shipped PNGs have that strip removed,
+       * so `h` here is only `crop`% of the page those percentages describe.
+       *
+       * Dividing by `crop` instead of by 100 converts a full-page percentage into a
+       * pixel offset inside the trimmed image. This is exactly what the tap targets
+       * in ArtBooks already do (`r[1]/crop*100`) — the canvas was the one place that
+       * still assumed a full-height file, which put every painted book high by the
+       * crop factor the moment the images were trimmed.
+       *
+       * Horizontal percentages are untouched: nothing was ever trimmed off the sides.
+       */
+      const crop=cropForJuz(juzs[0].n);
       canvas.width=w;canvas.height=h;
       const ctx=canvas.getContext("2d",{willReadFrequently:true});
       if(!ctx) return;
@@ -1889,11 +2001,11 @@ function ArtCanvas({juzs,saved}:{juzs:Juz[];saved:Saved}) {
         const key=`${juz.n}-${n}`,fill=saved.colored[key];
         if(!fill) return;
         if(juz.n!==30&&targetedPaintRects[key]){
-          const r=targetedPaintRects[key],x=Math.floor(r[0]/100*w),y=Math.floor(r[1]/100*h),rw=Math.ceil(r[2]/100*w),rh=Math.ceil(r[3]/100*h),pixels=ctx.getImageData(x,y,rw,rh),blend=fill==="sunset"?[[245,154,98],[231,92,134],[138,98,199]]:fill==="sunrise"?[[246,167,107],[245,207,104],[182,146,216]]:null,hex=blend?"":fill.replace("#",""),solid=blend?null:[parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)];
+          const r=targetedPaintRects[key],x=Math.floor(r[0]/100*w),y=Math.max(0,Math.min(h-1,Math.floor(r[1]/crop*h))),rw=Math.ceil(r[2]/100*w),rh=Math.max(1,Math.min(h-y,Math.ceil(r[3]/crop*h))),pixels=ctx.getImageData(x,y,rw,rh),blend=fill==="sunset"?[[245,154,98],[231,92,134],[138,98,199]]:fill==="sunrise"?[[246,167,107],[245,207,104],[182,146,216]]:null,hex=blend?"":fill.replace("#",""),solid=blend?null:[parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)];
           for(let p=0;p<pixels.data.length;p+=4){const red=pixels.data[p],green=pixels.data[p+1],blue=pixels.data[p+2],light=(red+green+blue)/3,sat=Math.max(red,green,blue)-Math.min(red,green,blue);if(light>112&&sat<132){const q=p/4,px=q%rw,py=Math.floor(q/rw),position=Math.min(1,Math.max(0,(px/rw+py/rh)/2)),segment=position<.5?0:1,t=position<.5?position*2:(position-.5)*2,from=blend?.[segment]||solid!,to=blend?.[segment+1]||solid!,tr=from[0]+(to[0]-from[0])*t,tg=from[1]+(to[1]-from[1])*t,tb=from[2]+(to[2]-from[2])*t,amount=Math.min(.76,Math.max(.28,(light-105)/150*.76));pixels.data[p]=red*(1-amount)+tr*amount;pixels.data[p+1]=green*(1-amount)+tg*amount;pixels.data[p+2]=blue*(1-amount)+tb*amount;}}
           ctx.putImageData(pixels,x,y);return;
         }
-        const core=bookRects[juz.n][i],r=fullBookRect(juz.n,core),x=Math.floor(r[0]/100*w),y=Math.floor(r[1]/100*h),rw=Math.ceil(r[2]/100*w),rh=Math.ceil(r[3]/100*h),coreX=Math.max(0,Math.floor((core[0]-r[0])/100*w)),coreY=Math.max(0,Math.floor((core[1]-r[1])/100*h)),coreR=Math.min(rw,Math.ceil((core[0]+core[2]-r[0])/100*w)),coreB=Math.min(rh,Math.ceil((core[1]+core[3]-r[1])/100*h));
+        const core=bookRects[juz.n][i],r=fullBookRect(juz.n,core),x=Math.floor(r[0]/100*w),y=Math.max(0,Math.min(h-1,Math.floor(r[1]/crop*h))),rw=Math.ceil(r[2]/100*w),rh=Math.max(1,Math.min(h-y,Math.ceil(r[3]/crop*h))),coreX=Math.max(0,Math.floor((core[0]-r[0])/100*w)),coreY=Math.max(0,Math.floor((core[1]-r[1])/crop*h)),coreR=Math.min(rw,Math.ceil((core[0]+core[2]-r[0])/100*w)),coreB=Math.min(rh,Math.ceil((core[1]+core[3]-r[1])/crop*h));
         const pixels=ctx.getImageData(x,y,rw,rh),blend=fill==="sunset"?[[245,154,98],[231,92,134],[138,98,199]]:fill==="sunrise"?[[246,167,107],[245,207,104],[182,146,216]]:null,hex=blend?"":fill.replace("#",""),solid=blend?null:[parseInt(hex.slice(0,2),16),parseInt(hex.slice(2,4),16),parseInt(hex.slice(4,6),16)],count=rw*rh,candidate=new Uint8Array(count),seen=new Uint8Array(count),queue=new Int32Array(count);
         for(let q=0;q<count;q++){const p=q*4,red=pixels.data[p],green=pixels.data[p+1],blue=pixels.data[p+2],light=(red+green+blue)/3,sat=Math.max(red,green,blue)-Math.min(red,green,blue);if(light>112&&sat<132)candidate[q]=1;}
         for(let start=0;start<count;start++){if(!candidate[start]||seen[start])continue;let head=0,tail=0,touchesCore=false;queue[tail++]=start;seen[start]=1;while(head<tail){const q=queue[head++],px=q%rw,py=Math.floor(q/rw);if(px>=coreX&&px<coreR&&py>=coreY&&py<coreB)touchesCore=true;const neighbors=[q-1,q+1,q-rw,q+rw];for(const next of neighbors){if(next>=0&&next<count&&!seen[next]&&candidate[next]&&(next===q-1?px>0:next===q+1?px<rw-1:true)){seen[next]=1;queue[tail++]=next;}}}if(!touchesCore)continue;for(let z=0;z<tail;z++){const q=queue[z],p=q*4,red=pixels.data[p],green=pixels.data[p+1],blue=pixels.data[p+2],light=(red+green+blue)/3,px=q%rw,py=Math.floor(q/rw),position=Math.min(1,Math.max(0,(px/rw+py/rh)/2)),segment=position<.5?0:1,t=position<.5?position*2:(position-.5)*2,from=blend?.[segment]||solid!,to=blend?.[segment+1]||solid!,tr=from[0]+(to[0]-from[0])*t,tg=from[1]+(to[1]-from[1])*t,tb=from[2]+(to[2]-from[2])*t,amount=Math.min(.76,Math.max(.28,(light-105)/150*.76));pixels.data[p]=red*(1-amount)+tr*amount;pixels.data[p+1]=green*(1-amount)+tg*amount;pixels.data[p+2]=blue*(1-amount)+tb*amount;}}
