@@ -113,7 +113,13 @@ export const OTHER_APP_PRODUCT_IDS: string[] = [
   "D3bRQBthRlnS8BRwHt-w7A==",   // $49/yr  Add two more apps        /l/miyhub
   "yL1qS3O7D10z5bb_dFOACg==",   // $89/yr  All Three Apps           /l/ihzywn
   // Muslim Kids Checklist — muslimkidschecklist.gumroad.com
-  "7e8uIMFPPfgCWGpda9OIsQ==",   // $40/yr  Family Access            /l/sgpcb
+  // Position 4 is a LOWERCASE l (108), not a capital I (73). Read off Gumroad's
+  // product editor 23 Aug and confirmed by character code. Three other copies in
+  // the portfolio carry the capital — they are copies of one original mistake,
+  // not independent confirmation. Do not "correct" this to match them.
+  // (Deliberately avoiding the word for a capital letter spelled in lower case:
+  //  Tailwind scans this file for class names and would emit a stray rule for it.)
+  "7e8ulMFPPfgCWGpda9OIsQ==",   // $40/yr  Family Access            /l/sgpcb
   "MDGCYGOYZKbezd3K0JXnfg==",   // $25/yr  Add one more app         /l/mtdviu
   "Kz5edWRDgpHaLf3-9_mt5g==",   // $49/yr  Add two more apps        /l/yuzyp
   "32mLygvh97ZA0_hkLiqHSA==",   // $89/yr  All Three Apps           /l/bkvfvr
