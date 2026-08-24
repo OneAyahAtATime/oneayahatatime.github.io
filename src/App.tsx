@@ -447,7 +447,7 @@ function OwnershipGatedPrice({ plan, teaser, foundNote, buyLabel }: {
   </div>;
 
   if(state==="yes") return <div className="gate-upgrade open">
-    <p className="upgrade-yes">Found it{product?` — ${product}`:""}. Thank you for coming back.</p>
+    <p className="upgrade-yes">{product?`Found your ${product}.`:"Found it."} Thank you for coming back.</p>
     <a className="gate-primary" href={buyHref(plan)}>Continue — {PLANS[plan].price}</a>
     <small>{foundNote}</small>
   </div>;

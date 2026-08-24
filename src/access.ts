@@ -460,6 +460,31 @@ export async function unlockWithKey(key: string): Promise<Unlocked> {
 export type OwnerCheck = { owns: boolean; product?: string; offline?: boolean };
 
 /**
+ * Which of our apps a sibling product ID belongs to.
+ *
+ * Gumroad's own `product_name` is the *tier* the person bought — "Add one more
+ * app", "All Three Apps" — which is exactly what they do not need to be told.
+ * At the moment we confirm ownership, what a buyer wants to see is that we
+ * recognized *which app they already have*. Spelling Quest says the same thing
+ * its own way: "Found your Spelling Quest."
+ *
+ * Falls back to Gumroad's name if an ID somehow is not listed here, so a new
+ * sibling product still confirms rather than showing a bare "Found it."
+ */
+const APP_BY_PRODUCT_ID: Record<string, string> = {
+  // Spelling Quest
+  "a-vmFHoWlZ86_4FnmjP_0g==": "Spelling Quest",
+  "-Kkbtx5LoSOHKvijvnUBMA==": "Spelling Quest",
+  "D3bRQBthRlnS8BRwHt-w7A==": "Spelling Quest",
+  "yL1qS3O7D10z5bb_dFOACg==": "Spelling Quest",
+  // Muslim Kids Checklist
+  "7e8ulMFPPfgCWGpda9OIsQ==": "Muslim Kids Checklist",
+  "MDGCYGOYZKbezd3K0JXnfg==": "Muslim Kids Checklist",
+  "Kz5edWRDgpHaLf3-9_mt5g==": "Muslim Kids Checklist",
+  "32mLygvh97ZA0_hkLiqHSA==": "Muslim Kids Checklist",
+};
+
+/**
  * Does this person already have one of our other apps?
  *
  * Two ways to say yes, and the first needs no connection at all:
@@ -480,7 +505,7 @@ export async function ownsAnotherApp(key: string): Promise<OwnerCheck> {
       const res = await verifyKey(productId, key, false);
       reached = true;
       if (res?.success && !isFinished(res.purchase)) {
-        return { owns: true, product: res.purchase?.product_name };
+        return { owns: true, product: APP_BY_PRODUCT_ID[productId] ?? res.purchase?.product_name };
       }
     } catch { /* try the next */ }
   }
