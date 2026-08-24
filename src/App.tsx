@@ -531,6 +531,68 @@ function AllThreePrice() {
   </a>;
 }
 
+/**
+ * "Put One Ayah on your Home Screen."
+ *
+ * iOS never offers to install a web app — there is no prompt, ever — so the app
+ * has to explain it. Android and desktop Chrome do offer one, and when they hand
+ * it to us we show a real button instead of instructions.
+ *
+ * Deliberately only rendered once somebody is inside the app (free week or paid),
+ * never on the gate, where it would compete with "Begin my 7 free days". It hides
+ * itself the moment the app is running installed, and remembers "Not now".
+ */
+function InstallCard(){
+  const [dismissed,setDismissed]=useState(()=>{ try{ return localStorage.getItem("oa-install-dismissed")==="1" }catch{ return false } });
+  const [installed,setInstalled]=useState(false);
+  const [deferred,setDeferred]=useState<any>(null);
+  useEffect(()=>{
+    const standalone=()=>{
+      try{ return window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone===true }
+      catch{ return false }
+    };
+    const check=()=>setInstalled(standalone());
+    check();
+    let mq:MediaQueryList|undefined;
+    try{ mq=window.matchMedia("(display-mode: standalone)") }catch{}
+    mq?.addEventListener?.("change",check);
+    const onPrompt=(e:Event)=>{ e.preventDefault(); setDeferred(e) };
+    const onInstalled=()=>setInstalled(true);
+    window.addEventListener("beforeinstallprompt",onPrompt);
+    window.addEventListener("appinstalled",onInstalled);
+    return()=>{
+      mq?.removeEventListener?.("change",check);
+      window.removeEventListener("beforeinstallprompt",onPrompt);
+      window.removeEventListener("appinstalled",onInstalled);
+    };
+  },[]);
+  if(installed||dismissed) return null;
+  const ua=typeof navigator==="undefined"?"":navigator.userAgent;
+  const isIOS=/iphone|ipad|ipod/i.test(ua) || (navigator.platform==="MacIntel"&&(navigator as any).maxTouchPoints>1);
+  const isAndroid=/android/i.test(ua);
+  const close=()=>{ try{ localStorage.setItem("oa-install-dismissed","1") }catch{} setDismissed(true) };
+  const install=async()=>{
+    if(!deferred) return;
+    try{ deferred.prompt(); await deferred.userChoice }catch{}
+    setDeferred(null);
+  };
+  return <section className="install-card" aria-labelledby="install-heading">
+    <img className="install-mark" src={asset("logo-icon.png")} alt="" aria-hidden="true"/>
+    <div className="install-body">
+      <h3 id="install-heading">Put One Ayah on your Home Screen</h3>
+      <p>It opens like an app, and works even without internet.</p>
+      {deferred
+        ? <button type="button" className="install-go" onClick={install}>Add to my Home Screen</button>
+        : isIOS
+          ? <p className="install-how">Tap <b>Share</b> at the bottom of Safari, then <b>Add to Home Screen</b>.</p>
+          : isAndroid
+            ? <p className="install-how">Tap the <b>⋮</b> menu in Chrome, then <b>Install app</b>.</p>
+            : <p className="install-how">Click the <b>install</b> icon in your browser&rsquo;s address bar.</p>}
+    </div>
+    <button type="button" className="install-later" onClick={close}>Not now</button>
+  </section>;
+}
+
 function Gate({ state, onStartTrial, onUnlock, onCode }:{
   state: "new"|"trial-over"|"ended";
   onStartTrial: () => void;
@@ -1544,6 +1606,7 @@ export default function Home() {
       startCarryingDemo={startCarryingDemo}
       startPracticeStatus={startPracticeStatus} startPracticeBulk={startPracticeBulk} startPracticeCert={startPracticeCert}
       tourJuz={tourJuz}/>}
+    <InstallCard/>
     <footer>
       <img className="footer-mark" src={asset("logo-icon.png")} alt="" aria-hidden="true"/>
       <p className="footer-dua"><span>☾</span> May every ayah bring your heart closer to the Qur'an. <span>♥</span></p>
