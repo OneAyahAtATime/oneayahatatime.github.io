@@ -101,10 +101,10 @@ export const PLANS: Record<"family" | "second" | "addTwo" | "bundle", Plan> = {
  * below is the one that opens the app, and it is deliberately narrower.
  *
  * Spelling Quest's four went in 22 Aug 2026 and its shop is published. Muslim
- * Kids Checklist's three went in 23 Aug from `Universal Files/PRODUCT-IDS.md`,
- * which is the canonical list — every one of them verified by character code
- * against that file, never read by eye. It has no $49 tier yet, so there are
- * three and not four.
+ * Kids Checklist's went in from `Universal Files/PRODUCT-IDS.md`, the canonical
+ * list — every one verified by character code, never read by eye. Its first
+ * three landed 23 Aug and its $49 "Add two more apps" followed the same day,
+ * once that product was built. All four tiers of both sibling apps are now here.
  */
 export const OTHER_APP_PRODUCT_IDS: string[] = [
   // Spelling Quest — spellingquest.gumroad.com
@@ -115,8 +115,8 @@ export const OTHER_APP_PRODUCT_IDS: string[] = [
   // Muslim Kids Checklist — muslimkidschecklist.gumroad.com
   "7e8uIMFPPfgCWGpda9OIsQ==",   // $40/yr  Family Access            /l/sgpcb
   "MDGCYGOYZKbezd3K0JXnfg==",   // $25/yr  Add one more app         /l/mtdviu
+  "Kz5edWRDgpHaLf3-9_mt5g==",   // $49/yr  Add two more apps        /l/yuzyp
   "32mLygvh97ZA0_hkLiqHSA==",   // $89/yr  All Three Apps           /l/bkvfvr
-  // Its $49 tier does not exist yet, so there is nothing to list.
 ];
 
 /**
@@ -155,8 +155,9 @@ export const OTHER_APP_UNLOCK_IDS: string[] = [
   "yL1qS3O7D10z5bb_dFOACg==",   // $89/yr  All Three Apps           /l/ihzywn
   // Muslim Kids Checklist — muslimkidschecklist.gumroad.com
   "MDGCYGOYZKbezd3K0JXnfg==",   // $25/yr  Add one more app         /l/mtdviu
+  "Kz5edWRDgpHaLf3-9_mt5g==",   // $49/yr  Add two more apps        /l/yuzyp
   "32mLygvh97ZA0_hkLiqHSA==",   // $89/yr  All Three Apps           /l/bkvfvr
-  // Its $40 belongs in the ownership list only, and its $49 does not exist yet.
+  // Its $40 belongs in the ownership list only, never here.
 ];
 
 /**
