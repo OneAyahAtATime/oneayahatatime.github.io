@@ -58,6 +58,27 @@ const colorOptions = [
 ];
 const colors = colorOptions.map(option=>option.value);
 const artForJuz = (n:number) => asset(n<=6?"juz-1-6.png":n<=13?"juz-7-13.png":n<=18?"juz-14-18.png":n<=22?"juz-19-22.png":n<=25?"juz-23-25.png":n<=27?"juz-26-27.png":n<=29?"juz-28-29.png":"juz-30-five-shelves-v9.png");
+/**
+ * How much of each tracker page is shown.
+ *
+ * These pages were originally drawn with a printable *Date Completed / My
+ * Favorite Surah* strip along the bottom, which the app has always cropped away
+ * — the container is `overflow:hidden` with an aspect ratio derived from this
+ * number, and every book's tap-target position is converted through it too.
+ *
+ * **On 24 Aug 2026 the PNGs themselves were trimmed to exactly these ratios**,
+ * because ~3.3 MB of every family's download was a strip nobody could see. The
+ * printable tracker is a separate product with its own artwork and does not
+ * live in this repo.
+ *
+ * Two consequences worth knowing:
+ *  - **Do not change these numbers to 100.** They still define the container
+ *    ratio and the tap-target maths; the files simply no longer carry the part
+ *    that used to be cut off.
+ *  - **Replacing a page means re-checking its number.** A regenerated file must
+ *    either match its trimmed proportions, or be a full-height page — in which
+ *    case this value crops it exactly as it always did.
+ */
 const cropForJuz = (n:number) => n<=6?84.1:n<=13?82.1:n<=18?82.5:n<=22?81.5:n<=25?80:n<=27?78:n<=29?84.5:87.5;
 type Rect = [number,number,number,number];
 const row = (count:number,y:number,x1:number,x2:number,h:number):Rect[] => Array.from({length:count},(_,i)=>{const gap=1.1,w=(x2-x1-gap*(count-1))/count;return [x1+i*(w+gap),y,w,h]});
