@@ -64,6 +64,22 @@ export type RemoteReciter = {
    * upgraded device to be given the right name wins over every stale one.
    */
   profile_at: number;
+  /**
+   * The muraja'ah round. Each field carries its own rule for who wins, because
+   * a synced field without one flip-flops between devices for ever.
+   *
+   * `reviewed_at` — {surah key: millisecond}, merged per key by newest, so a
+   * surah revised on the tablet is still revised on the phone.
+   * `review_round_at` — when the current round began. A surah counts as done
+   * for this round when its `reviewed_at` is at or after this. The later start
+   * wins, so a round finished on one device restarts on all of them.
+   * `review_size` / `review_size_at` — how many surahs make one sitting, and
+   * when a person last chose it. Newer choice wins.
+   */
+  reviewed_at: Record<string, number>;
+  review_round_at: number;
+  review_size: number;
+  review_size_at: number;
   removed: boolean;
 };
 
@@ -105,6 +121,8 @@ export const pushReciter = (fp: string, row: {
   dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>;
   workingOn: Record<string,unknown>; practiceDays: string[]; honorific: string;
   profileAt?: number; removed?: boolean;
+  reviewedAt?: Record<string,number>; reviewRoundAt?: number;
+  reviewSize?: number; reviewSizeAt?: number;
 }) => rpc<RemoteReciter>("push_reciter", {
   p_family_hash: fp,
   p_reciter_id: row.id,
@@ -121,6 +139,10 @@ export const pushReciter = (fp: string, row: {
   // A removal push leaves this at 0 on purpose: it sends an empty nickname and a
   // default honorific, and must never be read as somebody renaming anybody.
   p_profile_at: row.profileAt || 0,
+  p_reviewed_at: row.reviewedAt || {},
+  p_review_round_at: row.reviewRoundAt || 0,
+  p_review_size: row.reviewSize || 3,
+  p_review_size_at: row.reviewSizeAt || 0,
   p_removed: !!row.removed,
 });
 

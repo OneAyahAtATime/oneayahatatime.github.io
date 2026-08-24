@@ -225,8 +225,49 @@ function JourneyIcon({status,className="",style}:{status:RevisionStatus;classNam
  * the whole Qur'an was finished. `honorific` is only used on that certificate.
  */
 type Honorific = "Hafizah" | "Hafiz";
-type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific; profileAt?:number };
-const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah", profileAt:0 };
+type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific; profileAt?:number; reviewedAt?:Record<string,number>; reviewRoundAt?:number; reviewSize?:number; reviewSizeAt?:number };
+const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah", profileAt:0, reviewedAt:{}, reviewRoundAt:0, reviewSize:3, reviewSizeAt:0 };
+
+/**
+ * The muraja'ah round.
+ *
+ * A surah you have memorized is the one you are least likely to open again, and
+ * the easiest to quietly lose. The round exists so nobody has to decide what to
+ * revise: it walks every surah already in the heart, in mushaf order, a small
+ * portion at a time, and when it reaches the end it begins again.
+ *
+ * **In mushaf order, never shuffled.** This is a deliberate constraint, not a
+ * simplification. Anything that picks a surah at random — a spin, a shuffle, a
+ * "surprise surah" — borrows the visual language of games of chance, and that
+ * has no place anywhere near the Qur'an. Order is also how muraja'ah is actually
+ * done: a set portion each day, straight through, and around again. There is no
+ * randomness anywhere in this feature and none should ever be added.
+ *
+ * A round is bounded by `reviewRoundAt`. A surah counts as done for this round
+ * when `reviewedAt[key] >= reviewRoundAt`, so restarting a round is one
+ * assignment rather than clearing a list — which also means a surah memorized
+ * halfway through simply joins the round already in progress.
+ */
+const REVIEW_POOL:RevisionStatus[] = ["memorized","practice"];
+const DEFAULT_REVIEW_SIZE = 3;
+const MAX_REVIEW_SIZE = 30;
+
+/** Every surah in the heart, in mushaf order — the books this round walks. */
+const reviewPool = (saved:Saved):{key:string;juz:number;surah:number}[] =>
+  juzs.flatMap(juz=>juz.surahs
+    .map(n=>({key:`${juz.n}-${n}`,juz:juz.n,surah:n}))
+    .filter(b=>{const s=saved.statuses?.[b.key]; return !!s && REVIEW_POOL.includes(s)}));
+
+/**
+ * `at > 0` is load-bearing. A reciter who has never reviewed anything has
+ * `reviewedAt` empty and `reviewRoundAt` 0, and `0 >= 0` would mark every surah
+ * in the heart as already done — an empty first round that congratulates
+ * somebody for work they have not started.
+ */
+const reviewedThisRound = (saved:Saved,key:string) => {
+  const at = saved.reviewedAt?.[key] ?? 0;
+  return at > 0 && at >= (saved.reviewRoundAt ?? 0);
+};
 
 /**
  * When each book's status was last changed, as a plain millisecond stamp.
@@ -322,6 +363,10 @@ function normalize(raw:unknown,name:string):Saved {
     // device" — a save written before the stamp existed counts as never edited,
     // so any real edit anywhere in the family beats it. See `merge`.
     profileAt:typeof partial.profileAt==="number"&&partial.profileAt>0?partial.profileAt:0,
+    reviewedAt:partial.reviewedAt??{},
+    reviewRoundAt:typeof partial.reviewRoundAt==="number"?partial.reviewRoundAt:0,
+    reviewSize:Math.min(MAX_REVIEW_SIZE,Math.max(1,Math.round(partial.reviewSize||DEFAULT_REVIEW_SIZE))),
+    reviewSizeAt:typeof partial.reviewSizeAt==="number"?partial.reviewSizeAt:0,
   };
 }
 
@@ -974,6 +1019,18 @@ export default function Home() {
      * honorific and must never be mistaken for somebody renaming anyone. */
     const theirsAt = theirs.profile_at ?? 0, mineAt = mine.profileAt ?? 0;
     const takeTheirs = theirsAt > mineAt && !!theirs.nickname;
+
+    /* The muraja'ah round, with the same discipline as everything else here:
+       every field says who wins.
+         reviewedAt      — a surah reviewed on any device stays reviewed, so the
+                           newest moment per surah, never a replacement.
+         reviewRoundAt   — a round that restarted anywhere has restarted
+                           everywhere; the later start wins.
+         reviewSize      — a setting, so it carries its own stamp. */
+    const reviewedAt:Record<string,number> = {...mine.reviewedAt};
+    for(const [key,when] of Object.entries(theirs.reviewed_at||{}))
+      if(typeof when==="number" && when > (reviewedAt[key] ?? 0)) reviewedAt[key] = when;
+    const mySizeAt = mine.reviewSizeAt ?? 0, theirSizeAt = theirs.review_size_at ?? 0;
     return {
       ...mine,
       // The newer edit wins. Failing that, a real name still beats an untouched
@@ -983,6 +1040,11 @@ export default function Home() {
       honorific: takeTheirs ? (theirs.honorific==="Hafiz" ? "Hafiz" : "Hafizah")
         : (mine.honorific ?? "Hafizah"),
       profileAt: Math.max(mineAt, theirsAt),
+      reviewedAt,
+      reviewRoundAt: Math.max(mine.reviewRoundAt ?? 0, theirs.review_round_at ?? 0),
+      reviewSize: theirSizeAt > mySizeAt && theirs.review_size ? theirs.review_size
+        : (mine.reviewSize ?? DEFAULT_REVIEW_SIZE),
+      reviewSizeAt: Math.max(mySizeAt, theirSizeAt),
       colored, statuses, statusAt,
       // Notes and dates merge, with whatever is being typed here left alone.
       dates: {...theirs.dates, ...mine.dates},
@@ -1087,7 +1149,9 @@ export default function Home() {
         await pushReciter(fp,{ id:r.id, name:r.name, colored:mine.colored, statuses:outgoingStatuses(mine),
           statusAt:mine.statusAt||{}, dates:mine.dates, favorites:mine.favorites, ayahs:mine.ayahs,
           workingOn:mine.workingOn, practiceDays:mine.practiceDays, honorific:mine.honorific ?? "Hafizah",
-          profileAt:mine.profileAt ?? 0 });
+          profileAt:mine.profileAt ?? 0,
+          reviewedAt:mine.reviewedAt ?? {}, reviewRoundAt:mine.reviewRoundAt ?? 0,
+          reviewSize:mine.reviewSize ?? DEFAULT_REVIEW_SIZE, reviewSizeAt:mine.reviewSizeAt ?? 0 });
       }
 
       const settled = keepTypedNames(list);
@@ -1477,6 +1541,50 @@ export default function Home() {
   const startLearning = (key:string) => setSaved(s=>({...s,statuses:{...s.statuses,[key]:"learning"},statusAt:stampStatus(s.statusAt,[key]),practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
 
   /**
+   * One surah revisited, and what the reciter said about it.
+   *
+   * "Still strong" on a surah that was in muraja'ah puts it back in the heart —
+   * that is the whole point of revision and it should be visible. "Needs a
+   * little muraja'ah" moves it the other way, and the brand guide is explicit
+   * that this is not a demotion or a failure; it is the app doing its job.
+   *
+   * Either answer marks the surah revisited, because the question being asked
+   * is "did you go over it," not "did you pass."
+   */
+  const reviewBook = (key:string, strong:boolean) => {
+    setSaved(s=>{
+      const was = s.statuses?.[key];
+      const become:RevisionStatus|undefined =
+        strong ? (was==="practice" ? "memorized" : was)
+               : (was==="memorized" ? "practice" : was);
+      const next:Saved = {
+        ...s,
+        reviewedAt:{...s.reviewedAt,[key]:Date.now()},
+        practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()])),
+      };
+      if(become && become!==was) {
+        next.statuses = {...s.statuses,[key]:become};
+        next.statusAt = stampStatus(s.statusAt,[key]);
+      }
+      return next;
+    });
+  };
+
+  /* "Is the round finished" is derived from the data every render, never stored.
+     A stored flag would have to be cleared, would ride along to every other
+     device through sync, and would sit there stale if the pool changed — a
+     surah moved back to "learning" can finish a round without anybody
+     reviewing anything. Deriving it is always right. */
+
+  /** Begin the next round: every surah in the heart comes up again, in order. */
+  const beginNextRound = () => setSaved(s=>({...s, reviewRoundAt:Date.now()}));
+
+  const setReviewSize = (size:number) => setSaved(s=>({...s,
+    reviewSize:Math.min(MAX_REVIEW_SIZE,Math.max(1,size)),
+    // Its own stamp, like the nickname's: a setting needs a rule for who wins.
+    reviewSizeAt:Date.now()}));
+
+  /**
    * Saving and restoring a copy by hand.
    *
    * Progress travels between a family's devices on its own once they have a
@@ -1655,6 +1763,8 @@ export default function Home() {
 
       {onHome ? <>
         <MemorizingNow saved={saved} openJuz={openJuz} tourDemoCarrying={tourDemoCarrying}/>
+        <MurajaahRound saved={saved} onReview={reviewBook} onBeginRound={beginNextRound}
+          onSetSize={setReviewSize} openJuz={openJuz}/>
         <section className="juz-overview" aria-label="All 30 Juz">
           <div className="tracker-top"><h2>Choose a Juz</h2></div>
           <div className="juz-tiles">
@@ -1782,6 +1892,86 @@ export default function Home() {
  * Rendered as the same compact chips used in "This Juz, book by book", since a family can
  * end up with a lot of them at once.
  */
+/**
+ * The muraja'ah round — see the note beside `reviewPool`.
+ *
+ * Deliberately plain: a list, in mushaf order, with the portion at the top. No
+ * shuffling, no reveal, no "which surah will you get" — the next surahs are
+ * named before you tap anything, and they are the same ones if you close the
+ * app and come back. Nothing here may ever be made to feel like a draw.
+ */
+function MurajaahRound({saved,onReview,onBeginRound,onSetSize,openJuz}:{
+  saved:Saved; onReview:(key:string,strong:boolean)=>void; onBeginRound:()=>void;
+  onSetSize:(n:number)=>void; openJuz:(n:number)=>void;
+}) {
+  const pool = useMemo(()=>reviewPool(saved),[saved]);
+  const doneCount = useMemo(()=>pool.filter(b=>reviewedThisRound(saved,b.key)).length,[pool,saved]);
+  const size = Math.min(MAX_REVIEW_SIZE,Math.max(1,saved.reviewSize ?? DEFAULT_REVIEW_SIZE));
+
+  // Nothing is in the heart yet, so there is nothing to keep strong. Say
+  // nothing rather than showing an empty scaffold on a brand-new journey.
+  if(!pool.length) return null;
+
+  const complete = doneCount===pool.length;
+  const upNext = pool.filter(b=>!reviewedThisRound(saved,b.key)).slice(0,size);
+  const pct = Math.round(doneCount/pool.length*100);
+
+  return <section className="muraja-round" aria-label="Muraja'ah round">
+    <div className="tracker-top"><h2>Muraja&rsquo;ah round</h2></div>
+
+    <div className="muraja-progress">
+      <span className="tile-meter" aria-hidden="true"><i style={{width:`${pct}%`}}/></span>
+      {/* "surahs" rather than the home screen's "books": this card names actual
+          surahs and offers a portion measured in them, so mixing the shelf
+          metaphor in would make one card speak two languages. */}
+      <small>{doneCount} of {pool.length} {pool.length===1?"surah":"surahs"} revisited this round</small>
+    </div>
+
+    {complete
+      ? <div className="muraja-done">
+          <JourneyIcon status="memorized"/>
+          <p><b>MashaAllah — you have been all the way around.</b> Every surah in your heart has had
+             its turn. Begin again whenever you are ready; the Qur&rsquo;an is kept by returning to it.</p>
+          <button type="button" className="muraja-again" onClick={onBeginRound}>Begin the next round</button>
+        </div>
+      : <>
+          <ul className="muraja-list">
+            {upNext.map(book=>{
+              const surah = surahs[book.surah-1];
+              const status = saved.statuses[book.key]!;
+              return <li key={book.key}>
+                <button type="button" className="muraja-name" onClick={()=>openJuz(book.juz)}
+                  title={`Open Juz ${book.juz}`}>
+                  <JourneyIcon status={status}/>
+                  <span><b>{surah.en}</b><small>Juz {book.juz} · {statusMeta[status].short}</small></span>
+                </button>
+                <span className="muraja-answer">
+                  <button type="button" className="strong" onClick={()=>onReview(book.key,true)}
+                    aria-label={`${surah.en} is still strong`}>Still strong</button>
+                  <button type="button" className="again" onClick={()=>onReview(book.key,false)}
+                    aria-label={`${surah.en} needs a little muraja'ah`}>Needs a little muraja&rsquo;ah</button>
+                </span>
+              </li>;
+            })}
+          </ul>
+          <p className="muraja-note">
+            In order, all the way through, then around again — {pool.length-doneCount} still to come.
+          </p>
+        </>}
+
+    <div className="muraja-size">
+      <span id="muraja-size-label">Surahs each sitting</span>
+      <span role="group" aria-labelledby="muraja-size-label">
+        <button type="button" onClick={()=>onSetSize(size-1)} disabled={size<=1}
+          aria-label="One fewer surah each sitting">&minus;</button>
+        <b aria-live="polite">{size}</b>
+        <button type="button" onClick={()=>onSetSize(size+1)} disabled={size>=MAX_REVIEW_SIZE}
+          aria-label="One more surah each sitting">+</button>
+      </span>
+    </div>
+  </section>;
+}
+
 function MemorizingNow({saved,openJuz,tourDemoCarrying}:{saved:Saved;openJuz:(n:number)=>void;
   /** Set only by the tour's own step, and only while nothing is genuinely
    *  being learned yet — see the state's own comment in `Home`. */
