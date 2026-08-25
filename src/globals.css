@@ -483,7 +483,10 @@ footer .footer-dua{margin:0 0 10px}
 .practice-certificate .cert-honorific{font-size:.82rem;color:#665b7c;margin-top:14px}
 .practice-certificate .cert-honorific button{margin-left:6px}
 
-.install-card{width:min(1050px,92%);margin:8px auto 22px;padding:16px 18px;display:flex;align-items:center;gap:16px;
+/* Sits inside `.experience` alongside `.journey-strip`, so it takes that
+   panel's measure rather than centring a width of its own — which is what made
+   it the one block on the page that didn't line up with anything. */
+.install-card{margin:0 0 18px;padding:16px 18px;display:flex;align-items:center;gap:16px;
   background:#fff9ef;color:var(--ink);border:2px dashed #b596d0;border-radius:18px;box-shadow:0 10px 28px #0004}
 .install-mark{width:52px;height:52px;object-fit:contain;flex:none}
 .install-body{flex:1;min-width:0}
@@ -491,16 +494,25 @@ footer .footer-dua{margin:0 0 10px}
 .install-card p{margin:0;font-size:.92rem;line-height:1.5;color:#5b4c78}
 .install-how{margin-top:6px!important;color:#3c2a63!important}
 .install-how b{color:#7a3560}
-.install-go{margin-top:9px;border:2px solid #e6bc47;background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed;
-  border-radius:99px;padding:10px 18px;font-weight:900;cursor:pointer}
-.install-go:hover{box-shadow:0 0 22px #ffc64b66}
-.install-later{flex:none;align-self:flex-start;border:0;background:transparent;color:#7a6a95;
-  font-weight:800;font-size:.82rem;padding:4px 6px;cursor:pointer;text-decoration:underline}
-.install-later:hover{color:#4c2588}
+.install-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+/* The invitation carries the weight: bigger, gold-edged, lit. */
+.install-go{border:2px solid #e6bc47;background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed;
+  border-radius:99px;padding:12px 24px;font-weight:900;font-size:.95rem;cursor:pointer;
+  box-shadow:0 6px 18px #4c258855,0 0 0 4px #e6bc4722;transition:box-shadow .2s ease,transform .2s ease}
+.install-go:hover{box-shadow:0 8px 26px #4c258866,0 0 24px #ffc64b88;transform:translateY(-1px)}
+/* A real button too — declining should be as easy to find as accepting — but
+   quiet: outlined, no fill, no glow. */
+.install-later{border:2px solid #cbb6de;background:transparent;color:#6b5a8c;
+  border-radius:99px;padding:11px 18px;font-weight:800;font-size:.88rem;cursor:pointer}
+.install-later:hover{border-color:#9c7ad6;color:#4c2588;background:#f6eefc}
 @media(max-width:640px){
-  .install-card{flex-wrap:wrap;gap:12px;padding:14px}
+  /* Stacked, not side by side. Sharing the row 50/50 broke "Add to my Home
+     Screen" over three lines while "Not now" sat on one, which made the quiet
+     answer look like the confident one. */
+  .install-card{flex-wrap:wrap;gap:12px;padding:14px;align-items:flex-start}
   .install-mark{width:42px;height:42px}
-  .install-later{order:3;width:100%;text-align:center;align-self:auto}
+  .install-actions{width:100%;flex-direction:column;align-items:stretch;gap:8px}
+  .install-actions button{width:100%}
 }
 
 /* ── The muraja'ah round ────────────────────────────────────────────────────

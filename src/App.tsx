@@ -669,15 +669,19 @@ function InstallCard(){
     <div className="install-body">
       <h3 id="install-heading">Put One Ayah on your Home Screen</h3>
       <p>It opens like an app, and works even without internet.</p>
-      {deferred
-        ? <button type="button" className="install-go" onClick={install}>Add to my Home Screen</button>
-        : isIOS
-          ? <p className="install-how">Tap <b>Share</b> at the bottom of Safari, then <b>Add to Home Screen</b>.</p>
-          : isAndroid
-            ? <p className="install-how">Tap the <b>⋮</b> menu in Chrome, then <b>Install app</b>.</p>
-            : <p className="install-how">Click the <b>install</b> icon in your browser&rsquo;s address bar.</p>}
+      {!deferred && (isIOS
+        ? <p className="install-how">Tap <b>Share</b> at the bottom of Safari, then <b>Add to Home Screen</b>.</p>
+        : isAndroid
+          ? <p className="install-how">Tap the <b>⋮</b> menu in Chrome, then <b>Install app</b>.</p>
+          : <p className="install-how">Click the <b>install</b> icon in your browser&rsquo;s address bar.</p>)}
+      {/* Both answers are buttons, side by side, so declining is as easy to find
+          as accepting — but only one of them is dressed as the invitation. A
+          dismissal styled as a bare underlined link reads like fine print. */}
+      <div className="install-actions">
+        {deferred && <button type="button" className="install-go" onClick={install}>Add to my Home Screen</button>}
+        <button type="button" className="install-later" onClick={close}>Not now</button>
+      </div>
     </div>
-    <button type="button" className="install-later" onClick={close}>Not now</button>
   </section>;
 }
 
@@ -1743,6 +1747,12 @@ export default function Home() {
           {khatmDone&&<button type="button" className="khatm-link" onClick={()=>setCertificate(KHATM_KEY)}>📖 Khatm al-Qur’an — view {reciter}’s certificate</button>}
         </div>
 
+        {/* Straight after the journey strip, inside `.experience` with everything
+            else. It used to sit outside that panel, above the footer, where it
+            was both the last thing on the page and the only block not aligned to
+            the same measure. */}
+        <InstallCard/>
+
         <section className="achievement-card" aria-label={`${reciter}'s achievements`}><div><span className="tiny">A GROWING COLLECTION</span><h2>{reciter}’s achievements</h2></div><div className="badges">{badges.map(b=><div key={b.name} className={`badge ${b.earned?"earned":"locked"}`} title={b.earned?`${b.name} earned!`:b.note}><span>{b.icon}</span><b>{b.name}</b><small>{b.note}</small></div>)}</div></section>
 
         {practiceMode && <PracticeArea
@@ -1846,7 +1856,6 @@ export default function Home() {
       startCarryingDemo={startCarryingDemo}
       startPracticeStatus={startPracticeStatus} startPracticeBulk={startPracticeBulk} startPracticeCert={startPracticeCert}
       tourJuz={tourJuz}/>}
-    <InstallCard/>
     <footer>
       <img className="footer-mark" src={asset("logo-icon.png")} alt="" aria-hidden="true"/>
       <p className="footer-dua"><span>☾</span> May every ayah bring your heart closer to the Qur'an. <span>♥</span></p>
