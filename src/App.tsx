@@ -630,77 +630,151 @@ function AllThreePrice() {
  * never on the gate, where it would compete with "Begin my 7 free days". It hides
  * itself the moment the app is running installed, and remembers "Not now".
  */
+const INSTALL_SNOOZE_DAYS = 14;
+
 function InstallCard(){
-  const [dismissed,setDismissed]=useState(()=>{ try{ return localStorage.getItem("oa-install-dismissed")==="1" }catch{ return false } });
-  const [installed,setInstalled]=useState(false);
+  /* Two different kinds of "go away", because they mean different things.
+
+     "Not now"  → snoozed for a fortnight. A family who is busy today is not
+                  saying never, and a card that never comes back cannot be
+                  recovered by anybody who did not mean it.
+     The tick   → never again, full stop. This is the honest escape hatch for
+                  the case no amount of cleverness can detect: the app is
+                  already on a home screen and the browser will not say so.
+                  On iPhone and iPad it is the ONLY thing that can work —
+                  a home-screen web app there gets its own storage, entirely
+                  separate from Safari's, so nothing the installed copy
+                  remembers is ever visible to the tab this card is in. */
+  const [never,setNever]=useState(()=>{ try{ return localStorage.getItem("oa-install-never")==="1" }catch{ return false } });
+  const [snoozed,setSnoozed]=useState(()=>{
+    try{ return Number(localStorage.getItem("oa-install-snoozed")||0) > Date.now() }catch{ return false }
+  });
+  /* "Already on a home screen somewhere" — deliberately sticky.
+     Once true it is remembered, because the ways of detecting it are uneven:
+     `display-mode` only knows about the window it is running in, and
+     `getInstalledRelatedApps` needs Chrome 140+ on desktop. Missing the signal
+     later should not bring a card back that a family has already acted on. */
+  const [installed,setInstalled]=useState(()=>{ try{ return localStorage.getItem("oa-installed")==="1" }catch{ return false } });
+  const [showSteps,setShowSteps]=useState(false);
   /* Seeded from the event `index.html` parked on `window` before this bundle
      even loaded. Attaching a listener here and hoping is what made the button
      come and go — see the note beside that script. */
   const [deferred,setDeferred]=useState<any>(()=>(window as any).__oaInstallPrompt ?? null);
+
   useEffect(()=>{
+    const remember=()=>{ try{ localStorage.setItem("oa-installed","1") }catch{} setInstalled(true) };
+    /* Running *inside* the installed app. True in a home-screen window, false in
+       an ordinary browser tab — even on a machine where the app is installed. */
     const standalone=()=>{
       try{ return window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone===true }
       catch{ return false }
     };
-    const check=()=>setInstalled(standalone());
-    check();
+    if(standalone()) remember();
     let mq:MediaQueryList|undefined;
     try{ mq=window.matchMedia("(display-mode: standalone)") }catch{}
-    mq?.addEventListener?.("change",check);
-    // The parked event, for a card that mounted after Chrome offered it.
+    const onDisplay=()=>{ if(standalone()) remember() };
+    mq?.addEventListener?.("change",onDisplay);
+
+    /* Installed, but being viewed in a normal tab. This is the case the card
+       used to miss completely: Chrome will not offer `beforeinstallprompt` for
+       an app that is already installed, so the card fell back to instructions
+       and asked somebody to do a thing they had already done. */
+    (async()=>{
+      try{
+        const apps=await (navigator as any).getInstalledRelatedApps?.();
+        if(Array.isArray(apps)&&apps.length) remember();
+      }catch{ /* unsupported browser — the other signals still apply */ }
+    })();
+
     const onReady=()=>setDeferred((window as any).__oaInstallPrompt ?? null);
-    // And the live event, for a card already on screen when the offer arrives.
     const onPrompt=(e:Event)=>{ e.preventDefault(); (window as any).__oaInstallPrompt=e; setDeferred(e) };
-    const onInstalled=()=>{ setInstalled(true); setDeferred(null) };
+    const onInstalled=()=>{ remember(); setDeferred(null) };
     window.addEventListener("oa-install-ready",onReady);
     window.addEventListener("beforeinstallprompt",onPrompt);
     window.addEventListener("appinstalled",onInstalled);
     window.addEventListener("oa-installed",onInstalled);
     return()=>{
-      mq?.removeEventListener?.("change",check);
+      mq?.removeEventListener?.("change",onDisplay);
       window.removeEventListener("oa-install-ready",onReady);
       window.removeEventListener("beforeinstallprompt",onPrompt);
       window.removeEventListener("appinstalled",onInstalled);
       window.removeEventListener("oa-installed",onInstalled);
     };
   },[]);
-  if(installed||dismissed) return null;
+
+  if(installed||never||snoozed) return null;
+
   const ua=typeof navigator==="undefined"?"":navigator.userAgent;
   const isIOS=/iphone|ipad|ipod/i.test(ua) || (navigator.platform==="MacIntel"&&(navigator as any).maxTouchPoints>1);
   const isAndroid=/android/i.test(ua);
-  const close=()=>{ try{ localStorage.setItem("oa-install-dismissed","1") }catch{} setDismissed(true) };
+  const snooze=()=>{
+    try{ localStorage.setItem("oa-install-snoozed",String(Date.now()+INSTALL_SNOOZE_DAYS*864e5)) }catch{}
+    setSnoozed(true);
+  };
+  const hideForever=()=>{ try{ localStorage.setItem("oa-install-never","1") }catch{} setNever(true) };
   const install=async()=>{
     if(!deferred) return;
-    try{ deferred.prompt(); await deferred.userChoice }catch{}
+    try{
+      deferred.prompt();
+      const choice=await deferred.userChoice;
+      /* The most reliable signal there is, and it needs no browser support
+         beyond the prompt itself: they said yes, in front of us. `appinstalled`
+         usually follows, but not on every platform and not always promptly. */
+      if(choice?.outcome==="accepted"){ try{ localStorage.setItem("oa-installed","1") }catch{} setInstalled(true) }
+    }catch{}
     // Spent: a prompt event can only be used once.
     (window as any).__oaInstallPrompt=null;
     setDeferred(null);
   };
+  const steps = isIOS
+    ? <>Tap <b>Share</b> at the bottom of Safari, then <b>Add to Home Screen</b>.</>
+    : isAndroid
+      ? <>Tap the <b>⋮</b> menu in Chrome, then <b>Install app</b>.</>
+      : <>Click the <b>install</b> icon in your browser&rsquo;s address bar.</>;
+
   return <section className="install-card" aria-labelledby="install-heading">
     {/* Its own artwork rather than the app icon, which already appears twice on
         this screen: a phone carrying all four Muslimeen Market apps, with the
         two steps — Share, then Add — drawn beside it. The instruction as a
-        picture. Sized larger than a plain mark would be because it carries real
-        detail. Falls back to the app icon if the file is ever missing, so the
-        card can never show a broken image. */}
+        picture. Falls back to the app icon if the file is ever missing. */}
     <img className="install-mark" src={asset("install-art.png")} alt="" aria-hidden="true"
       onError={e=>{const i=e.currentTarget; if(!i.dataset.fellBack){i.dataset.fellBack="1"; i.src=asset("logo-icon.png")}}}/>
+
     <div className="install-body">
       <h3 id="install-heading">Put One Ayah on your Home Screen</h3>
-      <p>It opens like an app, and works even without internet.</p>
-      {!deferred && (isIOS
-        ? <p className="install-how">Tap <b>Share</b> at the bottom of Safari, then <b>Add to Home Screen</b>.</p>
-        : isAndroid
-          ? <p className="install-how">Tap the <b>⋮</b> menu in Chrome, then <b>Install app</b>.</p>
-          : <p className="install-how">Click the <b>install</b> icon in your browser&rsquo;s address bar.</p>)}
-      {/* Both answers are buttons, side by side, so declining is as easy to find
-          as accepting — but only one of them is dressed as the invitation. A
-          dismissal styled as a bare underlined link reads like fine print. */}
+      <p>Free, and takes a moment. Nothing to download from an app store.</p>
+
+      {/* There is ALWAYS a primary button, on every device.
+          Where the browser offers a real install it does the install. Where it
+          cannot — iPhone and iPad never can, and Chrome will not offer one for
+          an app already installed — it opens the steps instead. A card whose
+          main action appears on some machines and not others reads as broken,
+          and there is no way to make the true one-tap install exist everywhere. */}
       <div className="install-actions">
-        {deferred && <button type="button" className="install-go" onClick={install}>Add to my Home Screen</button>}
-        <button type="button" className="install-later" onClick={close}>Not now</button>
+        {deferred
+          ? <button type="button" className="install-go" onClick={install}>Add to my Home Screen</button>
+          : <button type="button" className="install-go" onClick={()=>setShowSteps(v=>!v)}
+              aria-expanded={showSteps}>{showSteps?"Hide the steps":"Show me how"}</button>}
+        <button type="button" className="install-later" onClick={snooze}>Not now</button>
       </div>
+
+      {!deferred && showSteps && <p className="install-how">{steps}</p>}
+
+      {/* The escape hatch. No detection can cover every case — an iPhone home
+          screen is invisible to Safari — so a family is given the switch. */}
+      <label className="install-never">
+        <input type="checkbox" checked={false} onChange={hideForever}/>
+        <span>Already added it, or not interested &mdash; don&rsquo;t show this again</span>
+      </label>
     </div>
+
+    {/* What installing actually buys, so the card earns the room it takes. */}
+    <ul className="install-perks">
+      <li>Opens full screen, with no address bar</li>
+      <li>Works with no internet at all</li>
+      <li>One tap from your home screen</li>
+      <li>No app store and no account</li>
+    </ul>
   </section>;
 }
 

@@ -511,6 +511,14 @@ footer .footer-dua{margin:0 0 10px}
 /* Displays at 98px, so 240x240 with a transparent background is comfortably 2x. */
 .install-mark{width:98px;height:98px;object-fit:contain;flex:none}
 .install-body{flex:1;min-width:0}
+/* What installing buys, as a column on the right. The card sat two-thirds empty
+   at desktop width with a heading, one line and two buttons; this fills it with
+   something worth reading rather than stretched type. */
+.install-perks{list-style:none;margin:0;padding:0 0 0 18px;display:grid;gap:5px;flex:0 1 300px;
+  border-left:1.5px dashed #d9c7ea}
+.install-perks li{position:relative;padding-left:20px;font-size:.8rem;font-weight:700;
+  line-height:1.35;color:#5b4c78}
+.install-perks li:before{content:"✓";position:absolute;left:0;top:0;font-weight:900;color:#2f8a63}
 .install-card h3{margin:0 0 2px;font-family:Georgia,serif;font-size:1.02rem;color:#4c2588}
 .install-card p{margin:0;font-size:.85rem;line-height:1.45;color:#5b4c78}
 .install-how{margin-top:4px!important;color:#3c2a63!important}
@@ -526,6 +534,12 @@ footer .footer-dua{margin:0 0 10px}
 .install-later{border:2px solid #cbb6de;background:transparent;color:#6b5a8c;
   border-radius:99px;padding:9px 16px;font-weight:800;font-size:.82rem;cursor:pointer}
 .install-later:hover{border-color:#9c7ad6;color:#4c2588;background:#f6eefc}
+/* Quieter than either button — this is a preference, not an answer to the
+   question the card is asking. Still a proper 16px target to tick. */
+.install-never{display:flex;align-items:center;gap:8px;margin-top:9px;cursor:pointer;
+  font-size:.74rem;font-weight:700;color:#7b6b96;line-height:1.35}
+.install-never input{width:16px;height:16px;flex:none;accent-color:#7b50bb;cursor:pointer;margin:0}
+.install-never:hover{color:#4c2588}
 @media(max-width:640px){
   /* Stacked, not side by side. Sharing the row 50/50 broke "Add to my Home
      Screen" over three lines while "Not now" sat on one, which made the quiet
@@ -534,6 +548,9 @@ footer .footer-dua{margin:0 0 10px}
   .install-mark{width:76px;height:76px}
   .install-actions{width:100%;flex-direction:column;align-items:stretch;gap:8px}
   .install-actions button{width:100%}
+  /* Below the copy rather than beside it, and without the rule that only makes
+     sense as a column divider. */
+  .install-perks{flex:1 1 100%;border-left:0;border-top:1.5px dashed #d9c7ea;padding:10px 0 0;margin-top:2px}
 }
 
 /* ── The muraja'ah round ────────────────────────────────────────────────────
