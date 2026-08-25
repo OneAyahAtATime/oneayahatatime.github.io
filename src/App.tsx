@@ -678,8 +678,11 @@ function InstallCard(){
   };
   return <section className="install-card" aria-labelledby="install-heading">
     {/* Its own artwork rather than the app icon, which already appears twice on
-        this screen. Falls back to the icon if the file isn't there yet, so the
-        card never shows a broken image while the art is being drawn. */}
+        this screen: a phone carrying all four Muslimeen Market apps, with the
+        two steps — Share, then Add — drawn beside it. The instruction as a
+        picture. Sized larger than a plain mark would be because it carries real
+        detail. Falls back to the app icon if the file is ever missing, so the
+        card can never show a broken image. */}
     <img className="install-mark" src={asset("install-art.png")} alt="" aria-hidden="true"
       onError={e=>{const i=e.currentTarget; if(!i.dataset.fellBack){i.dataset.fellBack="1"; i.src=asset("logo-icon.png")}}}/>
     <div className="install-body">
