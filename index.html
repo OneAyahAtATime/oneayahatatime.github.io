@@ -45,6 +45,29 @@
         window.__oaInstallPrompt = null;
         window.dispatchEvent(new Event("oa-installed"));
       });
+
+      /*
+        The service worker. Registered after load so it never competes with the
+        app for the first paint.
+
+        Two jobs, and the second one surprises people: it is what makes the app
+        genuinely openable with no internet — the browser's own HTTP cache does
+        that *sometimes*, but it is evicted under storage pressure and after a
+        stretch of not being opened, so offline "works" right up until it does
+        not — and it is also the only reason Chrome will ever offer to install
+        this app. `beforeinstallprompt` above can never fire without one.
+
+        Everything about how it caches, and the stale-file trap it deliberately
+        avoids, is documented at the top of sw.js.
+      */
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("./sw.js", { scope: "./" }).catch(function () {
+            /* An unregistered worker costs offline support and the install
+               button, and nothing else. The app works exactly as before. */
+          });
+        });
+      }
     </script>
 
     <meta property="og:type" content="website" />

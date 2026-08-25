@@ -94,18 +94,24 @@
 .memorizing-open small{font-size:.72rem;color:#836aa4;font-weight:700}
 .memorizing-open:hover b{text-decoration:underline;text-underline-offset:3px}
 
-.juz-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px}
+/* 112px was sized around 10.5px labels. At 12px "Alif Lam Mim" and "0 of 2 books"
+   need more room, so the minimum track grows with them — otherwise the text wraps
+   and thirty tiles all grow taller at once. auto-fill still decides the count, so
+   the grid simply fits fewer per row on a narrow screen instead of overflowing. */
+.juz-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px}
 .juz-tile{position:relative;display:grid;gap:5px;align-content:start;padding:12px 11px;border-radius:16px;cursor:pointer;text-align:left;
   border:1.5px solid #382a63;background:linear-gradient(160deg,#241a4d,#1a1440);color:#efe6ff;transition:transform .12s ease,border-color .12s ease}
 .juz-tile:hover{transform:translateY(-2px);border-color:#9c7ad6}
 .juz-tile .tile-top{display:flex;align-items:baseline;gap:5px}
 .juz-tile .tile-top small{font-size:.55rem;letter-spacing:.14em;color:#c3a7e8;font-weight:800}
 .juz-tile .tile-top strong{font-size:1.35rem;font-weight:900;line-height:1}
-.juz-tile .tile-label{font-style:normal;font-size:.66rem;color:#f3d979;font-weight:800;letter-spacing:.02em}
+.juz-tile /* The three below were 10.2–10.9px. They are the Juz's name and two counts — real
+   information a parent reads to choose where to go next, not ornament. */
+.tile-label{font-style:normal;font-size:.75rem;line-height:1.25;color:#f3d979;font-weight:800;letter-spacing:.01em}
 .juz-tile .tile-meter{display:block;height:5px;border-radius:99px;background:#3a2c68;overflow:hidden;margin-top:3px}
 .juz-tile .tile-meter i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#e05287,#f2c94c)}
-.juz-tile .tile-count{font-size:.68rem;font-weight:800;color:#bda7e0}
-.juz-tile .tile-working{display:flex;align-items:center;gap:5px;font-size:.64rem;font-weight:800;color:#f6d9a8;line-height:1.2}
+.juz-tile .tile-count{font-size:.75rem;font-weight:800;color:#bda7e0}
+.juz-tile .tile-working{display:flex;align-items:center;gap:5px;font-size:.75rem;font-weight:800;color:#f6d9a8;line-height:1.25}
 .juz-tile .tile-working .journey-icon{width:17px;height:17px;flex:0 0 auto}
 .juz-tile.started{border-color:#7d5bd1}
 .juz-tile.complete{border-color:#3f9e77;background:linear-gradient(160deg,#1d4d3d,#143a2e)}
