@@ -545,6 +545,26 @@ footer .footer-dua{margin:0 0 10px}
 .muraja-name small{font-size:.66rem;font-weight:700;color:#8a72ab;flex:none}
 .muraja-name:hover b{text-decoration:underline}
 
+/* An answered surah stays in place, settled rather than gone. Seeing the three
+   you chose is the whole point of a sitting having a size. */
+.muraja-list li.answered{background:#f6f1fb;border-style:dashed;border-color:#c9b6ea}
+.muraja-said{display:flex;align-items:center;gap:5px;padding:5px 13px;border-radius:99px;
+  font-size:.7rem;font-weight:800;line-height:1.25;white-space:nowrap;border:1.5px dashed transparent}
+.muraja-said i{font-style:normal;font-size:.78rem}
+.muraja-said.strong{color:#1f6b46;border-color:#9fd3b6;background:#eef8f2}
+.muraja-said.again{color:#5b3a90;border-color:#c9b0e6;background:#f6f0fd}
+
+/* The pause the portion setting promises. Quiet — finishing a sitting is a
+   small good thing, not a fanfare; the round finishing gets the fanfare. */
+.muraja-sitting-done{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:12px;margin-top:11px;padding:10px 14px;border-radius:16px;
+  border:1.5px solid #7660a8;background:#071c4cbf;text-align:center}
+.muraja-sitting-done p{margin:0;font-size:.78rem;font-weight:700;color:#c9bce0;line-height:1.45}
+.muraja-sitting-done b{color:#ffd876}
+.muraja-next-sitting{border:1.5px solid #eacb62;border-radius:99px;padding:7px 16px;
+  font-weight:800;font-size:.76rem;cursor:pointer;background:transparent;color:#ffe08a}
+.muraja-next-sitting:hover{background:#eacb6222;color:#fff8ed}
+
 .muraja-answer{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
 .muraja-answer button{border-radius:99px;padding:5px 13px;font-size:.7rem;font-weight:800;
   cursor:pointer;border:1.5px solid transparent;line-height:1.25;white-space:nowrap}
@@ -576,6 +596,7 @@ footer .footer-dua{margin:0 0 10px}
 
 @media (max-width:640px){
   .muraja-bar{flex-direction:column;align-items:stretch;gap:8px}
+  .muraja-sitting-done{flex-direction:column;gap:9px}
   .muraja-size{justify-content:center}
   .muraja-answer button{flex:1}
 }

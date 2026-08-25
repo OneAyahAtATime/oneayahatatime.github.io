@@ -1933,12 +1933,44 @@ function MurajaahRound({saved,onReview,onBeginRound,onSetSize,openJuz}:{
   const doneCount = useMemo(()=>pool.filter(b=>reviewedThisRound(saved,b.key)).length,[pool,saved]);
   const size = Math.min(MAX_REVIEW_SIZE,Math.max(1,saved.reviewSize ?? DEFAULT_REVIEW_SIZE));
 
+  /**
+   * The surahs in the sitting currently on screen — held, not derived.
+   *
+   * Deriving it as "the next N not yet revisited" made the portion meaningless:
+   * answer one and it vanished, the next slid silently into its place, and the
+   * list stayed N long until the entire round was gone. "Three each sitting"
+   * described how many were visible at once, not how many made a sitting, and
+   * the swap was quiet enough to miss.
+   *
+   * Held, the three stay put while they are answered, each showing what was
+   * said about it, and the sitting ends when all three are done.
+   *
+   * Deliberately NOT saved or synced: a sitting is one moment at one device.
+   * Reopening the app starts a fresh sitting from whatever is still unrevisited,
+   * which is the right behaviour and costs no stored state to get.
+   */
+  const [sitting,setSitting] = useState<string[]|null>(null);
+  const poolKeys = pool.map(b=>b.key).join("|");
+
+  // A different portion, or a new round, means a different sitting.
+  useEffect(()=>{ setSitting(null) },[size,saved.reviewRoundAt]);
+
+  useEffect(()=>{
+    if(sitting!==null) return;
+    const next = pool.filter(b=>!reviewedThisRound(saved,b.key)).slice(0,size).map(b=>b.key);
+    if(next.length) setSitting(next);
+  // `saved` is read, not depended on: this must run when a sitting is cleared or
+  // the pool changes, never on every keystroke elsewhere in the app.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[sitting,poolKeys,size]);
+
   // Nothing is in the heart yet, so there is nothing to keep strong. Say
   // nothing rather than showing an empty scaffold on a brand-new journey.
   if(!pool.length) return null;
 
   const complete = doneCount===pool.length;
-  const upNext = pool.filter(b=>!reviewedThisRound(saved,b.key)).slice(0,size);
+  const inSitting = (sitting??[]).map(k=>pool.find(b=>b.key===k)).filter(Boolean) as {key:string;juz:number;surah:number}[];
+  const sittingDone = inSitting.length>0 && inSitting.every(b=>reviewedThisRound(saved,b.key));
   const pct = Math.round(doneCount/pool.length*100);
 
   return <section className="muraja-round" aria-label="Muraja'ah round">
@@ -1977,27 +2009,45 @@ function MurajaahRound({saved,onReview,onBeginRound,onSetSize,openJuz}:{
         </div>
       : <>
           <ul className="muraja-list">
-            {upNext.map(book=>{
+            {inSitting.map(book=>{
               const surah = surahs[book.surah-1];
               const status = saved.statuses[book.key]!;
-              return <li key={book.key}>
+              const answered = reviewedThisRound(saved,book.key);
+              /* What was said is readable straight off the status, because the
+                 two answers land on different ones every time: "still strong"
+                 always ends at "in my heart", "a little muraja'ah" always ends
+                 at muraja'ah. No second thing to store or keep in step. */
+              const said = status==="memorized" ? "Still strong" : "A little muraja’ah";
+              return <li key={book.key} className={answered?"answered":undefined}>
                 <button type="button" className="muraja-name" onClick={()=>openJuz(book.juz)}
                   title={`Open Juz ${book.juz}`}>
                   <JourneyIcon status={status}/>
                   <b>{surah.en}</b><small>Juz {book.juz}</small>
                 </button>
-                <span className="muraja-answer">
-                  <button type="button" className="strong" onClick={()=>onReview(book.key,true)}
-                    aria-label={`${surah.en} is still strong`}>Still strong</button>
-                  {/* Short on the button, full meaning in the label — three of
-                      these sit side by side, and "Needs a little muraja'ah" set
-                      the width of the whole row. */}
-                  <button type="button" className="again" onClick={()=>onReview(book.key,false)}
-                    aria-label={`${surah.en} needs a little muraja'ah`}>A little muraja&rsquo;ah</button>
-                </span>
+                {answered
+                  ? <span className={`muraja-said ${status==="memorized"?"strong":"again"}`}>
+                      <i aria-hidden="true">✓</i>{said}
+                    </span>
+                  : <span className="muraja-answer">
+                      <button type="button" className="strong" onClick={()=>onReview(book.key,true)}
+                        aria-label={`${surah.en} is still strong`}>Still strong</button>
+                      {/* Short on the button, full meaning in the label — three of
+                          these sit side by side, and "Needs a little muraja'ah" set
+                          the width of the whole row. */}
+                      <button type="button" className="again" onClick={()=>onReview(book.key,false)}
+                        aria-label={`${surah.en} needs a little muraja'ah`}>A little muraja&rsquo;ah</button>
+                    </span>}
               </li>;
             })}
           </ul>
+
+          {sittingDone && <div className="muraja-sitting-done">
+            <p><b>That&rsquo;s your sitting.</b> {inSitting.length} {inSitting.length===1?"surah":"surahs"} revisited
+              {" "}&mdash; {pool.length-doneCount} still ahead in this round.</p>
+            <button type="button" className="muraja-next-sitting" onClick={()=>setSitting(null)}>
+              Do another sitting
+            </button>
+          </div>}
         </>}
   </section>;
 }
