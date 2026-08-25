@@ -665,7 +665,11 @@ function InstallCard(){
     setDeferred(null);
   };
   return <section className="install-card" aria-labelledby="install-heading">
-    <img className="install-mark" src={asset("logo-icon.png")} alt="" aria-hidden="true"/>
+    {/* Its own artwork rather than the app icon, which already appears twice on
+        this screen. Falls back to the icon if the file isn't there yet, so the
+        card never shows a broken image while the art is being drawn. */}
+    <img className="install-mark" src={asset("install-art.png")} alt="" aria-hidden="true"
+      onError={e=>{const i=e.currentTarget; if(!i.dataset.fellBack){i.dataset.fellBack="1"; i.src=asset("logo-icon.png")}}}/>
     <div className="install-body">
       <h3 id="install-heading">Put One Ayah on your Home Screen</h3>
       <p>It opens like an app, and works even without internet.</p>
@@ -1928,12 +1932,28 @@ function MurajaahRound({saved,onReview,onBeginRound,onSetSize,openJuz}:{
   return <section className="muraja-round" aria-label="Muraja'ah round">
     <div className="tracker-top"><h2>Muraja&rsquo;ah round</h2></div>
 
-    <div className="muraja-progress">
-      <span className="tile-meter" aria-hidden="true"><i style={{width:`${pct}%`}}/></span>
-      {/* "surahs" rather than the home screen's "books": this card names actual
-          surahs and offers a portion measured in them, so mixing the shelf
-          metaphor in would make one card speak two languages. */}
-      <small>{doneCount} of {pool.length} {pool.length===1?"surah":"surahs"} revisited this round</small>
+    {/* Progress and the portion control share one row. They were stacked, with a
+        third line underneath repeating the remaining count in words — three
+        lines of chrome above three surahs. */}
+    <div className="muraja-bar">
+      <div className="muraja-progress">
+        <span className="tile-meter" aria-hidden="true"><i style={{width:`${pct}%`}}/></span>
+        {/* "surahs" rather than the home screen's "books": this card names actual
+            surahs and offers a portion measured in them, so mixing the shelf
+            metaphor in would make one card speak two languages. */}
+        <small>{doneCount} of {pool.length} {pool.length===1?"surah":"surahs"} revisited
+          {complete ? " — the whole round" : `, in order · ${pool.length-doneCount} to come`}</small>
+      </div>
+      <div className="muraja-size">
+        <span id="muraja-size-label">Each sitting</span>
+        <span role="group" aria-labelledby="muraja-size-label">
+          <button type="button" onClick={()=>onSetSize(size-1)} disabled={size<=1}
+            aria-label="One fewer surah each sitting">&minus;</button>
+          <b aria-live="polite">{size}</b>
+          <button type="button" onClick={()=>onSetSize(size+1)} disabled={size>=MAX_REVIEW_SIZE}
+            aria-label="One more surah each sitting">+</button>
+        </span>
+      </div>
     </div>
 
     {complete
@@ -1963,21 +1983,7 @@ function MurajaahRound({saved,onReview,onBeginRound,onSetSize,openJuz}:{
               </li>;
             })}
           </ul>
-          <p className="muraja-note">
-            In order, all the way through, then around again — {pool.length-doneCount} still to come.
-          </p>
         </>}
-
-    <div className="muraja-size">
-      <span id="muraja-size-label">Surahs each sitting</span>
-      <span role="group" aria-labelledby="muraja-size-label">
-        <button type="button" onClick={()=>onSetSize(size-1)} disabled={size<=1}
-          aria-label="One fewer surah each sitting">&minus;</button>
-        <b aria-live="polite">{size}</b>
-        <button type="button" onClick={()=>onSetSize(size+1)} disabled={size>=MAX_REVIEW_SIZE}
-          aria-label="One more surah each sitting">+</button>
-      </span>
-    </div>
   </section>;
 }
 

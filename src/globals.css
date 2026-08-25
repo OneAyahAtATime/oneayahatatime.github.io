@@ -486,31 +486,32 @@ footer .footer-dua{margin:0 0 10px}
 /* Sits inside `.experience` alongside `.journey-strip`, so it takes that
    panel's measure rather than centring a width of its own — which is what made
    it the one block on the page that didn't line up with anything. */
-.install-card{margin:0 0 18px;padding:16px 18px;display:flex;align-items:center;gap:16px;
+.install-card{margin:0 0 18px;padding:12px 16px;display:flex;align-items:center;gap:14px;
   background:#fff9ef;color:var(--ink);border:2px dashed #b596d0;border-radius:18px;box-shadow:0 10px 28px #0004}
-.install-mark{width:52px;height:52px;object-fit:contain;flex:none}
+/* Displays at 80px, so supply 240x240 (3x) with a transparent background. */
+.install-mark{width:80px;height:80px;object-fit:contain;flex:none}
 .install-body{flex:1;min-width:0}
-.install-card h3{margin:0 0 3px;font-family:Georgia,serif;font-size:1.15rem;color:#4c2588}
-.install-card p{margin:0;font-size:.92rem;line-height:1.5;color:#5b4c78}
-.install-how{margin-top:6px!important;color:#3c2a63!important}
+.install-card h3{margin:0 0 2px;font-family:Georgia,serif;font-size:1.02rem;color:#4c2588}
+.install-card p{margin:0;font-size:.85rem;line-height:1.45;color:#5b4c78}
+.install-how{margin-top:4px!important;color:#3c2a63!important}
 .install-how b{color:#7a3560}
-.install-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+.install-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:9px}
 /* The invitation carries the weight: bigger, gold-edged, lit. */
 .install-go{border:2px solid #e6bc47;background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed;
-  border-radius:99px;padding:12px 24px;font-weight:900;font-size:.95rem;cursor:pointer;
+  border-radius:99px;padding:10px 20px;font-weight:900;font-size:.88rem;cursor:pointer;
   box-shadow:0 6px 18px #4c258855,0 0 0 4px #e6bc4722;transition:box-shadow .2s ease,transform .2s ease}
 .install-go:hover{box-shadow:0 8px 26px #4c258866,0 0 24px #ffc64b88;transform:translateY(-1px)}
 /* A real button too — declining should be as easy to find as accepting — but
    quiet: outlined, no fill, no glow. */
 .install-later{border:2px solid #cbb6de;background:transparent;color:#6b5a8c;
-  border-radius:99px;padding:11px 18px;font-weight:800;font-size:.88rem;cursor:pointer}
+  border-radius:99px;padding:9px 16px;font-weight:800;font-size:.82rem;cursor:pointer}
 .install-later:hover{border-color:#9c7ad6;color:#4c2588;background:#f6eefc}
 @media(max-width:640px){
   /* Stacked, not side by side. Sharing the row 50/50 broke "Add to my Home
      Screen" over three lines while "Not now" sat on one, which made the quiet
      answer look like the confident one. */
-  .install-card{flex-wrap:wrap;gap:12px;padding:14px;align-items:flex-start}
-  .install-mark{width:42px;height:42px}
+  .install-card{flex-wrap:wrap;gap:12px;padding:12px;align-items:flex-start}
+  .install-mark{width:56px;height:56px}
   .install-actions{width:100%;flex-direction:column;align-items:stretch;gap:8px}
   .install-actions button{width:100%}
 }
@@ -523,32 +524,33 @@ footer .footer-dua{margin:0 0 10px}
    full 1180px, each row stretched the surah's name and its two answers to
    opposite ends of the screen, which reads as two unrelated things. */
 .muraja-round>:not(.tracker-top){max-width:820px;margin-left:auto;margin-right:auto}
-.muraja-progress{display:grid;gap:5px;margin:0 0 14px}
-.muraja-progress .tile-meter{display:block;height:6px;border-radius:99px;background:#3a2c68;overflow:hidden}
+/* Progress and portion share one row: three surahs do not need three lines of
+   chrome above them. */
+.muraja-bar{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin:0 0 10px}
+.muraja-progress{display:grid;gap:4px;flex:1;min-width:0}
+.muraja-progress .tile-meter{display:block;height:5px;border-radius:99px;background:#3a2c68;overflow:hidden}
 .muraja-progress .tile-meter i{display:block;height:100%;border-radius:99px;
   background:linear-gradient(90deg,#7f5bd0,#f2c94c);transition:width .35s ease}
-.muraja-progress small{font-size:.74rem;font-weight:800;color:#c9bce0}
+.muraja-progress small{font-size:.72rem;font-weight:800;color:#c9bce0}
 
-.muraja-list{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+.muraja-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
 .muraja-list li{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;
-  padding:9px 11px;border-radius:15px;border:1.5px solid #d9c7ea;background:#fdfaff}
-.muraja-name{display:flex;align-items:center;gap:9px;border:0;background:transparent;padding:0;
+  padding:6px 10px;border-radius:13px;border:1.5px solid #d9c7ea;background:#fdfaff}
+.muraja-name{display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:0;
   cursor:pointer;color:#2b1a4d;text-align:left;min-width:0}
-.muraja-name .journey-icon{width:26px;height:26px;flex:0 0 auto}
-.muraja-name span{display:grid;min-width:0}
-.muraja-name b{font-size:.9rem;font-weight:800}
-.muraja-name small{font-size:.68rem;font-weight:700;color:#8a72ab}
+.muraja-name .journey-icon{width:22px;height:22px;flex:0 0 auto}
+.muraja-name span{display:flex;align-items:baseline;gap:8px;min-width:0;flex-wrap:wrap}
+.muraja-name b{font-size:.85rem;font-weight:800}
+.muraja-name small{font-size:.66rem;font-weight:700;color:#8a72ab}
 .muraja-name:hover b{text-decoration:underline}
 
 .muraja-answer{display:flex;gap:6px;flex-wrap:wrap}
-.muraja-answer button{border-radius:99px;padding:7px 13px;font-size:.72rem;font-weight:800;
-  cursor:pointer;border:1.5px solid transparent;line-height:1.2}
+.muraja-answer button{border-radius:99px;padding:5px 12px;font-size:.7rem;font-weight:800;
+  cursor:pointer;border:1.5px solid transparent;line-height:1.25}
 .muraja-answer .strong{background:#e8f5ee;border-color:#9fd3b6;color:#1f6b46}
 .muraja-answer .strong:hover{background:#d7eee2}
 .muraja-answer .again{background:#fdf0e2;border-color:#eec69a;color:#8a5320}
 .muraja-answer .again:hover{background:#f9e5cf}
-
-.muraja-note{margin:11px 0 0;font-size:.74rem;font-weight:700;color:#c9bce0;text-align:center}
 
 .muraja-done{display:grid;justify-items:center;gap:10px;text-align:center;padding:16px 14px;
   border-radius:18px;border:2px solid #eacb62;background:#0a255fbf}
@@ -559,16 +561,18 @@ footer .footer-dua{margin:0 0 10px}
   font-size:.8rem;cursor:pointer;background:linear-gradient(#7b50bb,#4c2588);color:#fff8ed}
 .muraja-again:hover{box-shadow:0 0 20px #eacb6266}
 
-.muraja-size{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:13px;
-  font-size:.72rem;font-weight:800;color:#c9bce0}
-.muraja-size span[role=group]{display:flex;align-items:center;gap:8px}
-.muraja-size button{width:28px;height:28px;border-radius:50%;border:1.5px solid #7f6aa8;
-  background:#1d1230;color:#efe4ff;font-size:1rem;font-weight:800;cursor:pointer;line-height:1}
+.muraja-size{display:flex;align-items:center;gap:8px;flex:none;
+  font-size:.7rem;font-weight:800;color:#c9bce0;white-space:nowrap}
+.muraja-size span[role=group]{display:flex;align-items:center;gap:6px}
+.muraja-size button{width:24px;height:24px;border-radius:50%;border:1.5px solid #7f6aa8;
+  background:#1d1230;color:#efe4ff;font-size:.9rem;font-weight:800;cursor:pointer;line-height:1}
 .muraja-size button:hover:not(:disabled){border-color:#eacb62;color:#ffd876}
 .muraja-size button:disabled{opacity:.35;cursor:default}
 .muraja-size b{min-width:1.2em;text-align:center;font-size:.95rem;color:#ffd876}
 
 @media (max-width:640px){
+  .muraja-bar{flex-direction:column;align-items:stretch;gap:8px}
+  .muraja-size{justify-content:center}
   .muraja-list li{flex-direction:column;align-items:stretch}
   .muraja-answer{justify-content:stretch}
   .muraja-answer button{flex:1}
