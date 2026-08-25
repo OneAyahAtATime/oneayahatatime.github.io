@@ -17,6 +17,36 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="One Ayah" />
 
+    <script>
+      /*
+        Chrome fires `beforeinstallprompt` ONCE, very early, and only if you call
+        preventDefault() does it keep the event for later use. The install card
+        used to attach its listener inside a React effect — which runs after the
+        bundle has downloaded, parsed and mounted. On a warm cache React won the
+        race and the button appeared; on a cold one Chrome fired first, nothing
+        was listening, the event was gone for that page load, and the card
+        silently fell back to written instructions.
+
+        That is exactly the reported symptom: refresh and the button appears,
+        reopen and it does not. Nothing random about it — a race, decided by how
+        fast the JavaScript loaded.
+
+        So the listener lives here instead, inline in <head>, running before
+        anything else on the page can. The event is parked on `window` and the
+        card collects it whenever it mounts, early or late.
+      */
+      window.__oaInstallPrompt = null;
+      window.addEventListener("beforeinstallprompt", function (e) {
+        e.preventDefault();
+        window.__oaInstallPrompt = e;
+        window.dispatchEvent(new Event("oa-install-ready"));
+      });
+      window.addEventListener("appinstalled", function () {
+        window.__oaInstallPrompt = null;
+        window.dispatchEvent(new Event("oa-installed"));
+      });
+    </script>
+
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://oneayahatatime.github.io/" />
     <meta property="og:title" content="One Ayah At A Time — a Qur'an memorization journey for the whole family" />

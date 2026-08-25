@@ -633,7 +633,10 @@ function AllThreePrice() {
 function InstallCard(){
   const [dismissed,setDismissed]=useState(()=>{ try{ return localStorage.getItem("oa-install-dismissed")==="1" }catch{ return false } });
   const [installed,setInstalled]=useState(false);
-  const [deferred,setDeferred]=useState<any>(null);
+  /* Seeded from the event `index.html` parked on `window` before this bundle
+     even loaded. Attaching a listener here and hoping is what made the button
+     come and go — see the note beside that script. */
+  const [deferred,setDeferred]=useState<any>(()=>(window as any).__oaInstallPrompt ?? null);
   useEffect(()=>{
     const standalone=()=>{
       try{ return window.matchMedia("(display-mode: standalone)").matches || (navigator as any).standalone===true }
@@ -644,14 +647,21 @@ function InstallCard(){
     let mq:MediaQueryList|undefined;
     try{ mq=window.matchMedia("(display-mode: standalone)") }catch{}
     mq?.addEventListener?.("change",check);
-    const onPrompt=(e:Event)=>{ e.preventDefault(); setDeferred(e) };
-    const onInstalled=()=>setInstalled(true);
+    // The parked event, for a card that mounted after Chrome offered it.
+    const onReady=()=>setDeferred((window as any).__oaInstallPrompt ?? null);
+    // And the live event, for a card already on screen when the offer arrives.
+    const onPrompt=(e:Event)=>{ e.preventDefault(); (window as any).__oaInstallPrompt=e; setDeferred(e) };
+    const onInstalled=()=>{ setInstalled(true); setDeferred(null) };
+    window.addEventListener("oa-install-ready",onReady);
     window.addEventListener("beforeinstallprompt",onPrompt);
     window.addEventListener("appinstalled",onInstalled);
+    window.addEventListener("oa-installed",onInstalled);
     return()=>{
       mq?.removeEventListener?.("change",check);
+      window.removeEventListener("oa-install-ready",onReady);
       window.removeEventListener("beforeinstallprompt",onPrompt);
       window.removeEventListener("appinstalled",onInstalled);
+      window.removeEventListener("oa-installed",onInstalled);
     };
   },[]);
   if(installed||dismissed) return null;
@@ -662,6 +672,8 @@ function InstallCard(){
   const install=async()=>{
     if(!deferred) return;
     try{ deferred.prompt(); await deferred.userChoice }catch{}
+    // Spent: a prompt event can only be used once.
+    (window as any).__oaInstallPrompt=null;
     setDeferred(null);
   };
   return <section className="install-card" aria-labelledby="install-heading">
@@ -1972,13 +1984,16 @@ function MurajaahRound({saved,onReview,onBeginRound,onSetSize,openJuz}:{
                 <button type="button" className="muraja-name" onClick={()=>openJuz(book.juz)}
                   title={`Open Juz ${book.juz}`}>
                   <JourneyIcon status={status}/>
-                  <span><b>{surah.en}</b><small>Juz {book.juz} · {statusMeta[status].short}</small></span>
+                  <b>{surah.en}</b><small>Juz {book.juz}</small>
                 </button>
                 <span className="muraja-answer">
                   <button type="button" className="strong" onClick={()=>onReview(book.key,true)}
                     aria-label={`${surah.en} is still strong`}>Still strong</button>
+                  {/* Short on the button, full meaning in the label — three of
+                      these sit side by side, and "Needs a little muraja'ah" set
+                      the width of the whole row. */}
                   <button type="button" className="again" onClick={()=>onReview(book.key,false)}
-                    aria-label={`${surah.en} needs a little muraja'ah`}>Needs a little muraja&rsquo;ah</button>
+                    aria-label={`${surah.en} needs a little muraja'ah`}>A little muraja&rsquo;ah</button>
                 </span>
               </li>;
             })}
