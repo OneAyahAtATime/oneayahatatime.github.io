@@ -57,7 +57,8 @@ const colorOptions = [
   {value:"sunset",label:"Sunset blend",background:"linear-gradient(135deg,#f59a62,#e75c86 52%,#8a62c7)"},{value:"sunrise",label:"Sunrise blend",background:"linear-gradient(135deg,#f6a76b,#f5cf68 52%,#b692d8)"},
 ];
 const colors = colorOptions.map(option=>option.value);
-const artForJuz = (n:number) => asset(n<=6?"juz-1-6.png":n<=13?"juz-7-13.png":n<=18?"juz-14-18.png":n<=22?"juz-19-22.png":n<=25?"juz-23-25.png":n<=27?"juz-26-27.png":n<=29?"juz-28-29.png":"juz-30-five-shelves-v9.png");
+const pngArtForJuz = (n:number) => asset(n<=6?"juz-1-6.png":n<=13?"juz-7-13.png":n<=18?"juz-14-18.png":n<=22?"juz-19-22.png":n<=25?"juz-23-25.png":n<=27?"juz-26-27.png":n<=29?"juz-28-29.png":"juz-30-five-shelves-v9.png");
+const artForJuz = (n:number) => pngArtForJuz(n).replace(/\.png$/, ".webp");
 /**
  * How much of each tracker page is shown.
  *
@@ -2396,5 +2397,5 @@ function ArtCanvas({juzs,saved}:{juzs:Juz[];saved:Saved}) {
     return()=>img.removeEventListener("load",paint);
   },[juzs,saved.colored]);
   const first=juzs[0],crop=cropForJuz(first.n),fullRatio=first.n===30?.5:2/3;
-  return <div className="art-image-layer" style={{aspectRatio:String(fullRatio/(crop/100))}}><img ref={imageRef} src={artForJuz(first.n)} alt={`Original illustrated Qur'an tracker page containing Juz ${first.n} through ${juzs[juzs.length-1].n}`}/><canvas ref={canvasRef} aria-hidden="true"/></div>;
+  return <div className="art-image-layer" style={{aspectRatio:String(fullRatio/(crop/100))}}><picture><source srcSet={artForJuz(first.n)} type="image/webp"/><img ref={imageRef} src={pngArtForJuz(first.n)} alt={`Original illustrated Qur'an tracker page containing Juz ${first.n} through ${juzs[juzs.length-1].n}`}/></picture><canvas ref={canvasRef} aria-hidden="true"/></div>;
 }

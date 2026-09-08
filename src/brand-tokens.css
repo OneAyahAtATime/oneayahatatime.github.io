@@ -1,0 +1,38 @@
+/* Shared brand inputs. Existing component styles migrate only when touched. */
+:root {
+  --oa-deep: #03133e;
+  --oa-night: #061d52;
+  --oa-card-dark: #0a255f;
+  --oa-cream: #fff8ed;
+  --oa-ink: #122861;
+  --oa-ink-soft: #5b4c78;
+  --oa-purple: #4c2588;
+  --oa-purple-mid: #7b50bb;
+  --oa-purple-soft: #9c7ad6;
+  --oa-lilac: #cbb4dc;
+  --oa-gold: #eacb62;
+  --oa-gold-bright: #ffc94e;
+  --oa-gold-pale: #ffe08a;
+  --oa-pink: #e05c91;
+  --oa-on-dark: #efe4ff;
+  --oa-on-dark-soft: #8f74c8;
+  --oa-heart-bg: #e8f5ee;
+  --oa-heart-line: #9fd3b6;
+  --oa-heart-ink: #1f6b46;
+  --oa-muraja-bg: #f2eafc;
+  --oa-muraja-line: #c9b0e6;
+  --oa-muraja-ink: #5b3a90;
+  --oa-font-display: Georgia, serif;
+  --oa-font-interface: Arial, Helvetica, sans-serif;
+  --oa-weight-prose: 400;
+  --oa-weight-emphasis: 800;
+  --oa-type-display: 2.35rem;
+  --oa-type-title: 1.55rem;
+  --oa-type-section: 1.15rem;
+  --oa-type-lead: 1rem;
+  --oa-type-body: .9rem;
+  --oa-type-label: .8rem;
+  --oa-type-caption: .75rem;
+  --oa-type-kicker: .75rem;
+  --oa-kicker-tracking: .18em;
+}
