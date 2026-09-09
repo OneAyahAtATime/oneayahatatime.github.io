@@ -984,6 +984,14 @@ export default function Home() {
   const onHome = activeGroup===null;
   const [color,setColor] = useState(colors[0]);
   const [statusBook,setStatusBook] = useState<{key:string;name:string;juz:number}|null>(null);
+  /**
+   * The color chosen inside the status dialog, for a book that is already
+   * colored. Null means "leave it as it is", so opening a book to change
+   * only its status never repaints it. It is reset every time the dialog
+   * opens, because the palette on the page behind resets to the first color
+   * on every page load and must never silently recolor a finished book.
+   */
+  const [statusColor,setStatusColor] = useState<string|null>(null);
   // A certificate is either for one Juz (its number) or for the whole Qur'an.
   // A celebration can cover several Juz at once, since marking a page in one go
   // can finish more than one.
@@ -1571,7 +1579,7 @@ export default function Home() {
     const justFinishedQuran=justFinishedJuz&&juzs.every(j=>juzMemorized(j,nextStatuses))&&!saved.dates[KHATM_KEY];
 
     setSaved(s=>{
-      const next:Saved={...s,statuses:{...s.statuses,[key]:status},statusAt:stampStatus(s.statusAt,[key]),practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
+      const next:Saved={...s,colored:statusColor?{...s.colored,[key]:statusColor}:s.colored,statuses:{...s.statuses,[key]:status},statusAt:stampStatus(s.statusAt,[key]),practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
       if(justFinishedJuz) next.dates={...s.dates,[juz]:localDay()};
       if(justFinishedQuran) next.dates={...next.dates,[KHATM_KEY]:localDay()};
       return next;
@@ -1898,13 +1906,13 @@ export default function Home() {
           <h2>{rangeLabel}</h2>
           <div className="tools"><span>Illuminate <small>(choose its colors)</small></span>{colorOptions.map(option=><button key={option.value} aria-label={`Choose ${option.label}`} title={option.label} aria-pressed={color===option.value} className={`swatch ${option.background?"blend-swatch":""}`} onClick={()=>setColor(option.value)} style={{background:option.background||option.value}}/>)}</div>
         </div>
-        <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateAyahs={updateAyahs} openStatus={setStatusBook} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}
+        <IllustratedTracker juzs={currentJuzs} saved={saved} toggle={toggle} update={update} updateAyahs={updateAyahs} openStatus={(b:{key:string;name:string;juz:number})=>{setStatusColor(null);setStatusBook(b)}} openCertificate={setCertificate} openRow={openRow} setOpenRow={setOpenRow}
           bulk={bulk} picked={picked} onPick={togglePicked} onPickAll={setPicked} onApply={applyToPicked} onUnmark={unmarkPicked} onStartBulk={()=>setBulk(true)} onLeaveBulk={leaveBulk}
           tourDemoJuz={tourDemoNotes?tourJuz:undefined}/>
       </>}
     </section>
 
-    {statusBook&&<div className="modal-backdrop" onMouseDown={()=>setStatusBook(null)}><section className="status-dialog" role="dialog" aria-modal="true" aria-label={`Revision status for ${statusBook.name}`} onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setStatusBook(null)}>×</button><img className="status-masjid" src={asset("status-art/status-masjid.png")} alt="Watercolor masjid"/><p className="eyebrow">HOW IS THIS SURAH GOING?</p><h2>{statusBook.name}</h2><p>Choose a gentle reminder for your journey.</p><div className="status-choices">{journeyOrder.map(status=><button key={status} className={saved.statuses[statusBook.key]===status?"selected":undefined} aria-pressed={saved.statuses[statusBook.key]===status} onClick={()=>chooseStatus(status)}><JourneyIcon status={status}/><b>{statusMeta[status].label}</b>{statusMeta[status].hint&&<small className="status-hint">{statusMeta[status].hint}</small>}</button>)}<button className="status-reset" onClick={unmarkBook}><BlankBookIcon/><b>I haven’t started this yet</b><small className="status-hint">Puts this book back to blank so it can be illuminated again whenever you like.</small></button></div></section></div>}
+    {statusBook&&<div className="modal-backdrop" onMouseDown={()=>setStatusBook(null)}><section className="status-dialog" role="dialog" aria-modal="true" aria-label={`Revision status for ${statusBook.name}`} onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setStatusBook(null)}>×</button><img className="status-masjid" src={asset("status-art/status-masjid.png")} alt="Watercolor masjid"/><p className="eyebrow">HOW IS THIS SURAH GOING?</p><h2>{statusBook.name}</h2><p>Choose a gentle reminder for your journey.</p><div className="status-colors"><span>Illuminate <small>(choose its color)</small></span>{colorOptions.map(option=><button key={option.value} aria-label={`Choose ${option.label}`} title={option.label} aria-pressed={(statusColor??saved.colored[statusBook.key])===option.value} className={`swatch ${option.background?"blend-swatch":""}`} onClick={()=>setStatusColor(option.value)} style={{background:option.background||option.value}}/>)}</div><div className="status-choices">{journeyOrder.map(status=><button key={status} className={saved.statuses[statusBook.key]===status?"selected":undefined} aria-pressed={saved.statuses[statusBook.key]===status} onClick={()=>chooseStatus(status)}><JourneyIcon status={status}/><b>{statusMeta[status].label}</b>{statusMeta[status].hint&&<small className="status-hint">{statusMeta[status].hint}</small>}</button>)}<button className="status-reset" onClick={unmarkBook}><BlankBookIcon/><b>I haven’t started this yet</b><small className="status-hint">Puts this book back to blank so it can be illuminated again whenever you like.</small></button></div></section></div>}
 
     {practiceStatusBook&&<div className="modal-backdrop" onMouseDown={()=>setPracticeStatusBook(null)}><section className="status-dialog" role="dialog" aria-modal="true" aria-label={`Practice status for ${practiceStatusBook.name}`} onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setPracticeStatusBook(null)}>×</button><p className="eyebrow">PRACTICE — NOTHING IS SAVED</p><h2>{practiceStatusBook.name}</h2><p>Try any status you like — this is just for practice.</p><div className="status-choices">{journeyOrder.map(status=><button key={status} className={practiceStatuses[practiceStatusBook.key]===status?"selected":undefined} aria-pressed={practiceStatuses[practiceStatusBook.key]===status} onClick={()=>practiceChoose(status)}><JourneyIcon status={status}/><b>{statusMeta[status].label}</b>{statusMeta[status].hint&&<small className="status-hint">{statusMeta[status].hint}</small>}</button>)}<button className="status-reset" onClick={practiceUnmark}><BlankBookIcon/><b>I haven’t started this yet</b><small className="status-hint">Puts this practice book back to blank so you can try again.</small></button></div>{practiceStatuses[practiceStatusBook.key]&&<label className="practice-ayah-field"><span>Try jotting the exact ayahs</span><input value={practiceAyahs[practiceStatusBook.key]||""} onChange={e=>setPracticeAyahs(a=>({...a,[practiceStatusBook.key]:e.target.value}))} placeholder="Ayahs, e.g. 1–7"/></label>}</section></div>}
 
