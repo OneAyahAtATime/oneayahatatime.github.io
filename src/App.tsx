@@ -1099,7 +1099,12 @@ export default function Home() {
     for(const [key,value] of Object.entries(theirs.statuses||{})) {
       const ours = statusAt[key] ?? 0;
       const yours = theirs.status_at?.[key] ?? 0;
-      if(yours < ours) continue;
+      /* A tie goes to this device, not the server. Two stamps are equal either
+         because the server is echoing back this device's own push — in which
+         case both sides hold the same value and it makes no difference — or
+         because two devices landed in the same millisecond, and then the one
+         somebody is actually touching should not be overruled. */
+      if(yours <= ours) continue;
       statusAt[key] = yours;
       // "cleared" is how a book somebody un-marked travels: it is never a
       // status the app shows, only the news that the book went back to blank.
@@ -1137,6 +1142,32 @@ export default function Home() {
     for(const [key,when] of Object.entries(theirs.reviewed_at||{}))
       if(typeof when==="number" && when > (reviewedAt[key] ?? 0)) reviewedAt[key] = when;
     const mySizeAt = mine.reviewSizeAt ?? 0, theirSizeAt = theirs.review_size_at ?? 0;
+
+    /* A finishing date is a fact — once a Juz has one it keeps it. Kathryn
+       narrowed that on 9 September 2026, and this is the narrow version:
+       a Juz taken *completely* blank loses its date, because a Juz nobody has
+       started was never finished and the date was a mis-tap.
+
+       "Completely blank" means every book in it un-colored and carrying no
+       status at all. A Juz in muraja'ah has been memorized — clearing its date
+       there would delete a real achievement and take a family's certificate
+       with it, which is exactly what must not happen.
+
+       This has to live in the merge, not only in unmarkBook. Dates merge as a
+       union of both sides, so a date deleted on this device was restored from
+       the server on the very next sync and the certificate never went away. */
+    const prunedDates:Record<string,string> = {...theirs.dates, ...mine.dates};
+    let anyJuzWentBlank = false;
+    for(const juz of juzs) {
+      if(!(String(juz.n) in prunedDates)) continue;
+      const blank = juz.surahs.every(n=>!colored[`${juz.n}-${n}`] && !statuses[`${juz.n}-${n}`]);
+      if(blank) { delete prunedDates[String(juz.n)]; anyJuzWentBlank = true; }
+    }
+    /* The Qur'an is only finished while every Juz is. If one went back to
+       blank it is not, so the Khatm certificate goes with it — the same pair
+       unmarkBook already removes together. Nothing else disturbs it: a surah
+       moved into muraja'ah leaves both the Juz date and the Khatm alone. */
+    if(anyJuzWentBlank) delete prunedDates[KHATM_KEY];
     return {
       ...mine,
       // The newer edit wins. Failing that, a real name still beats an untouched
@@ -1153,7 +1184,7 @@ export default function Home() {
       reviewSizeAt: Math.max(mySizeAt, theirSizeAt),
       colored, statuses, statusAt,
       // Notes and dates merge, with whatever is being typed here left alone.
-      dates: {...theirs.dates, ...mine.dates},
+      dates: prunedDates,
       favorites: {...theirs.favorites, ...mine.favorites},
       ayahs: {...theirs.ayahs, ...mine.ayahs},
       workingOn: {...(theirs.working_on as Record<string,CurrentWork>), ...mine.workingOn},
