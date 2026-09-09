@@ -1201,6 +1201,12 @@ export default function Home() {
        the server on the very next sync and the certificate never went away. */
     const prunedDates:Record<string,string> = {...theirs.dates, ...mine.dates};
     let anyJuzWentBlank = false;
+    /* Juz that carry a finishing date and yet have no marked book at all. That
+       can only mean somebody cleared them: a Juz nobody has started has no
+       date to begin with, and a Juz in muraja'ah has statuses. Every device
+       that syncs sees this state, which is what lets the tombstone below reach
+       a device that did not witness the clearing itself. */
+    const blankWithADate:string[] = [];
     for(const juz of juzs) {
       if(!(String(juz.n) in prunedDates)) continue;
       /* "Blank" is judged on statuses alone, deliberately. A status is the
@@ -1212,7 +1218,7 @@ export default function Home() {
          would leave the certificate standing after a family had cleared the
          whole Juz, which is the fault this rule exists to fix. */
       const blank = juz.surahs.every(n=>!statuses[`${juz.n}-${n}`]);
-      if(blank) { delete prunedDates[String(juz.n)]; anyJuzWentBlank = true; }
+      if(blank) { delete prunedDates[String(juz.n)]; anyJuzWentBlank = true; blankWithADate.push(String(juz.n)); }
     }
     /* The Qur'an is only finished while every Juz is. If one went back to
        blank it is not, so the Khatm certificate goes with it — the same pair
@@ -1233,6 +1239,14 @@ export default function Home() {
        not see the clearing still shows the old date. Fixing that properly
        needs `push_reciter` to accept a deletion. */
     const datesCleared:Record<string,number> = {...(mine.datesCleared||{})};
+    /* Adopt a tombstone for anything observed blank-with-a-date, not only for
+       clearings made on this device. Without this, the device that did the
+       clearing is protected and every other one is not: the blank rule above
+       hides the stale date only while the Juz stays empty, so the moment a
+       family starts that Juz again on a second phone the server's old date
+       returns there and the celebration is lost on that device. Adopting the
+       tombstone on sight closes that gap without a schema change. */
+    for(const key of blankWithADate) if(!(key in datesCleared)) datesCleared[key]=Date.now();
     for(const key of Object.keys(datesCleared)) {
       const juz = juzs.find(j=>String(j.n)===key);
       if(juz && juzMemorized(juz,statuses)) { delete datesCleared[key]; continue; }
