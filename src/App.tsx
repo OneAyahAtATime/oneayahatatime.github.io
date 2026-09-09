@@ -25,6 +25,19 @@ const surahs: Surah[] = [
   [1,"الفاتحة","Al-Fatiha"],[2,"البقرة","Al-Baqarah"],[3,"آل عمران","Aal Imran"],[4,"النساء","An-Nisa"],[5,"المائدة","Al-Ma’idah"],[6,"الأنعام","Al-An’am"],[7,"الأعراف","Al-A’raf"],[8,"الأنفال","Al-Anfal"],[9,"التوبة","At-Tawbah"],[10,"يونس","Yunus"],[11,"هود","Hud"],[12,"يوسف","Yusuf"],[13,"الرعد","Ar-Ra’d"],[14,"إبراهيم","Ibrahim"],[15,"الحجر","Al-Hijr"],[16,"النحل","An-Nahl"],[17,"الإسراء","Al-Isra"],[18,"الكهف","Al-Kahf"],[19,"مريم","Maryam"],[20,"طه","Ta-Ha"],[21,"الأنبياء","Al-Anbiya"],[22,"الحج","Al-Hajj"],[23,"المؤمنون","Al-Mu’minun"],[24,"النور","An-Nur"],[25,"الفرقان","Al-Furqan"],[26,"الشعراء","Ash-Shu’ara"],[27,"النمل","An-Naml"],[28,"القصص","Al-Qasas"],[29,"العنكبوت","Al-Ankabut"],[30,"الروم","Ar-Rum"],[31,"لقمان","Luqman"],[32,"السجدة","As-Sajdah"],[33,"الأحزاب","Al-Ahzab"],[34,"سبأ","Saba"],[35,"فاطر","Fatir"],[36,"يس","Ya-Sin"],[37,"الصافات","As-Saffat"],[38,"ص","Sad"],[39,"الزمر","Az-Zumar"],[40,"غافر","Ghafir"],[41,"فصلت","Fussilat"],[42,"الشورى","Ash-Shura"],[43,"الزخرف","Az-Zukhruf"],[44,"الدخان","Ad-Dukhan"],[45,"الجاثية","Al-Jathiyah"],[46,"الأحقاف","Al-Ahqaf"],[47,"محمد","Muhammad"],[48,"الفتح","Al-Fath"],[49,"الحجرات","Al-Hujurat"],[50,"ق","Qaf"],[51,"الذاريات","Adh-Dhariyat"],[52,"الطور","At-Tur"],[53,"النجم","An-Najm"],[54,"القمر","Al-Qamar"],[55,"الرحمن","Ar-Rahman"],[56,"الواقعة","Al-Waqi’ah"],[57,"الحديد","Al-Hadid"],[58,"المجادلة","Al-Mujadilah"],[59,"الحشر","Al-Hashr"],[60,"الممتحنة","Al-Mumtahanah"],[61,"الصف","As-Saff"],[62,"الجمعة","Al-Jumu’ah"],[63,"المنافقون","Al-Munafiqun"],[64,"التغابن","At-Taghabun"],[65,"الطلاق","At-Talaq"],[66,"التحريم","At-Tahrim"],[67,"الملك","Al-Mulk"],[68,"القلم","Al-Qalam"],[69,"الحاقة","Al-Haqqah"],[70,"المعارج","Al-Ma’arij"],[71,"نوح","Nuh"],[72,"الجن","Al-Jinn"],[73,"المزمل","Al-Muzzammil"],[74,"المدثر","Al-Muddaththir"],[75,"القيامة","Al-Qiyamah"],[76,"الإنسان","Al-Insan"],[77,"المرسلات","Al-Mursalat"],[78,"النبأ","An-Naba’"],[79,"النازعات","An-Naziat"],[80,"عبس","‘Abasa"],[81,"التكوير","At-Takweer"],[82,"الإنفطار","Al-Infitar"],[83,"المطففين","Al-Mutaffifin"],[84,"الإنشقاق","Al-Inshiqaq"],[85,"البروج","Al-Burooj"],[86,"الطارق","At-Tariq"],[87,"الأعلى","Al-A’la"],[88,"الغاشية","Al-Ghashiyah"],[89,"الفجر","Al-Fajr"],[90,"البلد","Al-Balad"],[91,"الشمس","Ash-Shams"],[92,"الليل","Al-Layl"],[93,"الضحى","Ad-Duha"],[94,"الشرح","Ash-Sharh"],[95,"التين","At-Teen"],[96,"العلق","Al-‘Alaq"],[97,"القدر","Al-Qadr"],[98,"البينة","Al-Bayyinah"],[99,"الزلزلة","Az-Zalzalah"],[100,"العاديات","Al-‘Adiyat"],[101,"القارعة","Al-Qari’ah"],[102,"التكاثر","At-Takathur"],[103,"العصر","Al-‘Asr"],[104,"الهمزة","Al-Humazah"],[105,"الفيل","Al-Feel"],[106,"قريش","Quraish"],[107,"الماعون","Al-Ma’oon"],[108,"الكوثر","Al-Kawthar"],[109,"الكافرون","Al-Kafiroon"],[110,"النصر","An-Nasr"],[111,"المسد","Al-Masad"],[112,"الإخلاص","Al-Ikhlas"],[113,"الفلق","Al-Falaq"],[114,"الناس","An-Nas"],
 ].map(([n,ar,en]) => ({ n: n as number, ar: ar as string, en: en as string }));
 
+/* How many ayahs each surah holds, in surah order. Used only to suggest what to
+   memorize next: a child who has just finished Al-Fatiha should be offered
+   something their size, not Al-Baqarah because it happens to sit in the same
+   Juz. Standard Hafs numbering. */
+const surahAyat: number[] = [
+  7,286,200,176,120,165,206,75,129,109,123,111,43,52,99,128,111,110,98,135,
+  112,78,118,64,77,227,93,88,69,60,34,30,73,54,45,83,182,88,75,85,
+  54,53,89,59,37,35,38,29,18,45,60,49,62,55,78,96,29,22,24,13,
+  14,11,11,18,12,12,30,52,52,44,28,28,20,56,40,31,50,40,46,42,
+  29,19,36,25,22,17,19,26,30,20,15,21,11,8,8,19,5,8,8,11,
+  11,8,3,9,5,4,7,3,6,3,5,4,5,6,
+];
+
 // Juz names are taken from the artwork, so the app and the pages always agree.
 // Every page prints its Juz names on the banner, in the artwork's own spelling.
 const rawJuz: [number, number[], string][] = [
@@ -1001,7 +1014,36 @@ export default function Home() {
   // rather than coloring it, and no per-book prompt interrupts.
   const [bulk,setBulk] = useState(false);
   const [picked,setPicked] = useState<string[]>([]);
-  const [nextUp,setNextUp] = useState<{juz:number;name:string}|null>(null);
+  const [nextUp,setNextUp] = useState<{juz:number;name:string;surah:number}|null>(null);
+  /**
+   * What to offer after a surah goes into the heart.
+   *
+   * It used to list whatever else sat in the same Juz, which is wrong for the
+   * two Juz children actually start in. Finishing Al-Fatiha offered
+   * Al-Baqarah — the longest surah in the Qur'an — because it is the only
+   * other book in Juz 1. Kathryn, 9 September 2026: offer another in that Juz
+   * *or* one of a similar length elsewhere.
+   *
+   * So candidates are ranked by how close they are in length to the surah just
+   * finished, a tie going to the same Juz. Anything already in the heart is
+   * out; anything being learned may reappear, because carrying on with it is a
+   * perfectly good answer to "what next".
+   */
+  const nextSuggestions = (juzN:number, surahN:number) => {
+    const target = surahAyat[surahN-1] ?? 0;
+    const pool: {juz:number;n:number;d:number;same:boolean}[] = [];
+    for(const j of juzs) for(const n of j.surahs) {
+      /* Never offer the surah just finished. Al-Baqarah, An-Nisa and the other
+         long ones sit in two or three Juz, so matching on the Juz alone would
+         hand it straight back in its next Juz. */
+      if(n===surahN) continue;
+      if(saved.statuses[`${j.n}-${n}`]==="memorized") continue;
+      if(pool.some(c=>c.n===n)) continue;   // a surah spanning two Juz is offered once
+      pool.push({ juz:j.n, n, d:Math.abs((surahAyat[n-1] ?? 0)-target), same:j.n===juzN });
+    }
+    pool.sort((a,b)=> a.d-b.d || (a.same===b.same ? a.n-b.n : a.same ? -1 : 1));
+    return pool.slice(0,3);
+  };
 
   /* ---- the tour's practice-Juz page ---------------------------------------
      Entirely separate state from `saved` on purpose: nothing typed or tapped
@@ -1627,7 +1669,7 @@ export default function Home() {
     if(justFinishedQuran) setTimeout(()=>setCelebrating({khatm:true,juz:[juz]}),160);
     else if(justFinishedJuz) setTimeout(()=>setCelebrating({khatm:false,juz:[juz]}),160);
     // Finishing one surah is a good moment to ask what comes next in this Juz.
-    else if(status==="memorized") setTimeout(()=>setNextUp({juz,name}),140);
+    else if(status==="memorized") setTimeout(()=>setNextUp({juz,name,surah:Number(key.split("-")[1])}),140);
   };
 
   /**
@@ -1968,7 +2010,7 @@ export default function Home() {
 
     {practiceCert&&<div className="certificate-screen practice-certificate" role="dialog" aria-modal="true"><div className="certificate"><button className="close-x no-print" onClick={()=>setPracticeCert(false)}>×</button><p className="practice-watermark">PRACTICE CERTIFICATE — NOTHING IS SAVED</p><div className="cert-stars">✦ · ★ · ✦ · ★ · ✦</div><img className="cert-top-moon" src={asset("status-art/learning-moon.png")} alt="Watercolor crescent moon"/><p>CERTIFICATE OF QUR'AN MEMORIZATION</p><h2>MashaAllah!</h2><span>This certificate celebrates</span><h1>you</h1><span>for completing</span><h3>this practice Juz</h3><p className="cert-honorific">This is what it will look like when you finish — shown as a{" "}{(["Hafizah","Hafiz"] as Honorific[]).map(option=><button key={option} type="button" className={practiceHonorific===option?"selected":undefined} aria-pressed={practiceHonorific===option} onClick={()=>setPracticeHonorific(option)}>{option}</button>)}</p><div className="cert-dua">May Allah fill your heart with the light of the Qur'an.</div></div></div>}
 
-    {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=juz.surahs.filter(n=>saved.statuses[`${juz.n}-${n}`]!=="memorized");return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next in Juz ${juz.n}?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(n=><button key={n} onClick={()=>{startLearning(`${juz.n}-${n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[n-1].en}</span></button>)}</div>}
+    {nextUp&&(()=>{const juz=juzs.find(j=>j.n===nextUp.juz)!;const remaining=nextSuggestions(nextUp.juz,nextUp.surah);return <div className="modal-backdrop" onMouseDown={()=>setNextUp(null)}><section className="status-dialog next-up" role="dialog" aria-modal="true" aria-label="Choose what to memorize next" onMouseDown={e=>e.stopPropagation()}><button className="close-x" onClick={()=>setNextUp(null)}>×</button><JourneyIcon status="memorized" className="next-up-star"/><p className="eyebrow">MASHAALLAH!</p><h2>{nextUp.name} is in your heart</h2><p>{remaining.length?`What would you like to work on next?`:`That was the last surah in Juz ${juz.n}. Beautiful work.`}</p>{remaining.length>0&&<div className="next-choices">{remaining.map(c=><button key={`${c.juz}-${c.n}`} onClick={()=>{startLearning(`${c.juz}-${c.n}`);setNextUp(null)}}><JourneyIcon status="learning"/><span>{surahs[c.n-1].en}<small>{`Juz ${c.juz} \u00b7 ${surahAyat[c.n-1]} ${surahAyat[c.n-1]===1?"ayah":"ayahs"}`}</small></span></button>)}</div>}
       {/* Nothing was offered when the Juz is already finished, so declining it makes no sense. */}
       <button className="unmark" onClick={()=>setNextUp(null)}>{remaining.length?"Not right now":"Done"}</button></section></div>})()}
 

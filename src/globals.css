@@ -640,4 +640,4 @@ footer .footer-dua{margin:0 0 10px}
   .muraja-answer button{flex:1}
 }
 
-.status-colors{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:8px;margin-top:14px;color:#665b7c;font-size:.78rem;font-weight:800}.status-colors small{font-weight:400}.status-colors .swatch{width:22px;height:22px;border-color:#cbb4dc}
+.status-colors{display:flex;align-items:center;justify-content:center;flex-wrap:nowrap;gap:5px;margin-top:14px;color:#665b7c;font-size:.78rem;font-weight:800}.status-colors>span{white-space:nowrap;margin-right:3px}.status-colors small{font-weight:400}.status-colors .swatch{flex:0 0 auto;width:20px;height:20px;border-width:2px;border-color:#cbb4dc}@media(max-width:560px){.status-colors{flex-wrap:wrap;gap:6px}.status-colors>span{flex:0 0 100%;text-align:center;margin:0 0 2px}}.next-choices button>span{display:grid;gap:2px}.next-choices button small{display:block;font-weight:400;font-size:.68rem;color:#7a6b95}
