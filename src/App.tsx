@@ -239,8 +239,8 @@ function JourneyIcon({status,className="",style}:{status:RevisionStatus;classNam
  * the whole Qur'an was finished. `honorific` is only used on that certificate.
  */
 type Honorific = "Hafizah" | "Hafiz";
-type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific; profileAt?:number; reviewedAt?:Record<string,number>; reviewRoundAt?:number; reviewSize?:number; reviewSizeAt?:number };
-const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah", profileAt:0, reviewedAt:{}, reviewRoundAt:0, reviewSize:3, reviewSizeAt:0 };
+type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific; profileAt?:number; reviewedAt?:Record<string,number>; reviewRoundAt?:number; reviewSize?:number; reviewSizeAt?:number; datesCleared?:Record<string,number> };
+const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah", profileAt:0, reviewedAt:{}, reviewRoundAt:0, reviewSize:3, reviewSizeAt:0, datesCleared:{} };
 
 /**
  * The muraja'ah round.
@@ -366,6 +366,7 @@ function normalize(raw:unknown,name:string):Saved {
     name,
     colored:partial.colored??{},
     dates:partial.dates??{},
+    datesCleared:partial.datesCleared??{},
     favorites:partial.favorites??{},
     ayahs:partial.ayahs??ayahsFromWorkingOn(partial.workingOn),
     workingOn:partial.workingOn??{},
@@ -1218,6 +1219,26 @@ export default function Home() {
        unmarkBook already removes together. Nothing else disturbs it: a surah
        moved into muraja'ah leaves both the Juz date and the Khatm alone. */
     if(anyJuzWentBlank) delete prunedDates[KHATM_KEY];
+    /* Tombstones. The server never forgets a date: `push_reciter` merges dates
+       rather than replacing them, so a Juz cleared here comes back on the next
+       pull as soon as any book in it is marked again — and the celebration
+       cannot fire, because it needs `!dates[juz]`.
+
+       A tombstone suppresses the server's copy until the Juz is genuinely
+       memorized again, at which point the date is earned afresh and the
+       tombstone is dropped where it is set. A Juz in muraja'ah is untouched:
+       it was never cleared, so it has no tombstone and keeps its date.
+
+       This is local only — there is no column for it — so a device that did
+       not see the clearing still shows the old date. Fixing that properly
+       needs `push_reciter` to accept a deletion. */
+    const datesCleared:Record<string,number> = {...(mine.datesCleared||{})};
+    for(const key of Object.keys(datesCleared)) {
+      const juz = juzs.find(j=>String(j.n)===key);
+      if(juz && juzMemorized(juz,statuses)) { delete datesCleared[key]; continue; }
+      delete prunedDates[key];
+      delete prunedDates[KHATM_KEY];
+    }
     return {
       ...mine,
       // The newer edit wins. Failing that, a real name still beats an untouched
@@ -1235,6 +1256,7 @@ export default function Home() {
       colored, statuses, statusAt,
       // Notes and dates merge, with whatever is being typed here left alone.
       dates: prunedDates,
+      datesCleared,
       favorites: {...theirs.favorites, ...mine.favorites},
       ayahs: {...theirs.ayahs, ...mine.ayahs},
       workingOn: {...(theirs.working_on as Record<string,CurrentWork>), ...mine.workingOn},
@@ -1661,7 +1683,11 @@ export default function Home() {
 
     setSaved(s=>{
       const next:Saved={...s,colored:statusColor?{...s.colored,[key]:statusColor}:s.colored,statuses:{...s.statuses,[key]:status},statusAt:stampStatus(s.statusAt,[key]),practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))};
-      if(justFinishedJuz) next.dates={...s.dates,[juz]:localDay()};
+      if(justFinishedJuz) {
+        next.dates={...s.dates,[juz]:localDay()};
+        // Earned again, so the tombstone has done its job and goes.
+        const dc={...(s.datesCleared||{})}; delete dc[String(juz)]; next.datesCleared=dc;
+      }
       if(justFinishedQuran) next.dates={...next.dates,[KHATM_KEY]:localDay()};
       return next;
     });
@@ -1686,11 +1712,12 @@ export default function Home() {
       statuses[key]=status;
     }
     const finished=juzs.filter(j=>juzMemorized(j,statuses)&&!dates[j.n]).map(j=>j.n);
-    for(const n of finished) dates[n]=localDay();
+    const datesCleared={...(saved.datesCleared||{})};
+    for(const n of finished) { dates[n]=localDay(); delete datesCleared[String(n)]; }
     const wholeQuran=juzs.every(j=>juzMemorized(j,statuses))&&!dates[KHATM_KEY];
     if(wholeQuran) dates[KHATM_KEY]=localDay();
 
-    setSaved(s=>({...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,picked),
+    setSaved(s=>({...s,colored,statuses,dates,datesCleared,statusAt:stampStatus(s.statusAt,picked),
       practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
     setBulk(false);
     setPicked([]);
@@ -1710,9 +1737,13 @@ export default function Home() {
     const colored={...saved.colored},statuses={...saved.statuses},dates={...saved.dates};
     const affectedJuz=new Set(picked.map(key=>Number(key.split("-")[0])));
     for(const key of picked) { delete colored[key]; delete statuses[key]; }
-    for(const n of affectedJuz) delete dates[n];
-    delete dates[KHATM_KEY];
-    setSaved(s=>({...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,picked)}));
+    const clearedNow:Record<string,number>={};
+    for(const n of affectedJuz) {
+      const whole=juzs.find(j=>j.n===n);
+      if(whole&&whole.surahs.every(m=>!statuses[`${n}-${m}`])) { delete dates[n]; clearedNow[String(n)]=Date.now(); }
+    }
+    if(Object.keys(clearedNow).length) delete dates[KHATM_KEY];
+    setSaved(s=>({...s,colored,statuses,dates,datesCleared:{...(s.datesCleared||{}),...clearedNow},statusAt:stampStatus(s.statusAt,picked)}));
     setBulk(false);
     setPicked([]);
   };
@@ -1731,8 +1762,17 @@ export default function Home() {
        reverting the person's decision. A Juz with any book still marked keeps
        its date; a Juz taken completely blank loses it, here and in merge. */
     const whole=juzs.find(j=>j.n===statusBook.juz);
-    if(whole&&whole.surahs.every(n=>!statuses[`${whole.n}-${n}`])) { delete dates[statusBook.juz];delete dates[KHATM_KEY]; }
-    return {...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,[statusBook.key])}});setStatusBook(null)};
+    const datesCleared={...(s.datesCleared||{})};
+    if(whole&&whole.surahs.every(n=>!statuses[`${whole.n}-${n}`])) {
+      delete dates[statusBook.juz];delete dates[KHATM_KEY];
+      /* Remember that this Juz was cleared. The server keeps dates for ever —
+         `push_reciter` merges them rather than replacing them, measured on
+         9 September 2026 — so without this the stale date comes back from the
+         next pull the moment any book in the Juz is marked again, and the
+         celebration never fires because it needs `!dates[juz]`. */
+      datesCleared[String(statusBook.juz)]=Date.now();
+    }
+    return {...s,colored,statuses,dates,datesCleared,statusAt:stampStatus(s.statusAt,[statusBook.key])}});setStatusBook(null)};
   const update = (field:"name"|"dates"|"favorites", key:string, value:string) => setSaved(s=> field==="name" ? {...s,name:value} : {...s,[field]:{...s[field],[key]:value}});
   const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value}}));
   /** Marking a book as being learned is how a family says "this is what we're on". */
