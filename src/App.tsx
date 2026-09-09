@@ -1160,7 +1160,15 @@ export default function Home() {
     let anyJuzWentBlank = false;
     for(const juz of juzs) {
       if(!(String(juz.n) in prunedDates)) continue;
-      const blank = juz.surahs.every(n=>!colored[`${juz.n}-${n}`] && !statuses[`${juz.n}-${n}`]);
+      /* "Blank" is judged on statuses alone, deliberately. A status is the
+         stamped, sync-safe signal: coloring a book always sets one, and
+         un-marking always clears one. Color is not — the merge unions both
+         sides, so a color deleted here is restored from the server until a
+         "cleared" status completes a full round trip, and a book nobody has
+         started can carry a stale color for a cycle or two. Judging on color
+         would leave the certificate standing after a family had cleared the
+         whole Juz, which is the fault this rule exists to fix. */
+      const blank = juz.surahs.every(n=>!statuses[`${juz.n}-${n}`]);
       if(blank) { delete prunedDates[String(juz.n)]; anyJuzWentBlank = true; }
     }
     /* The Qur'an is only finished while every Juz is. If one went back to
@@ -1671,7 +1679,18 @@ export default function Home() {
    * undo travels to the family's other devices instead of being quietly
    * reversed by whichever of them last saw the book marked.
    */
-  const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};delete colored[statusBook.key];delete statuses[statusBook.key];delete dates[statusBook.juz];delete dates[KHATM_KEY];return {...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,[statusBook.key])}});setStatusBook(null)};
+  const unmarkBook=()=>{if(!statusBook)return;setSaved(s=>{
+    const colored={...s.colored},statuses={...s.statuses},dates={...s.dates};
+    delete colored[statusBook.key];delete statuses[statusBook.key];
+    /* Only clear the Juz date when this un-mark actually empties the Juz.
+       Removing it on every single un-mark promised something the merge then
+       undid a couple of seconds later — the date came straight back from the
+       other side and the certificate with it, which looked like the app
+       reverting the person's decision. A Juz with any book still marked keeps
+       its date; a Juz taken completely blank loses it, here and in merge. */
+    const whole=juzs.find(j=>j.n===statusBook.juz);
+    if(whole&&whole.surahs.every(n=>!statuses[`${whole.n}-${n}`])) { delete dates[statusBook.juz];delete dates[KHATM_KEY]; }
+    return {...s,colored,statuses,dates,statusAt:stampStatus(s.statusAt,[statusBook.key])}});setStatusBook(null)};
   const update = (field:"name"|"dates"|"favorites", key:string, value:string) => setSaved(s=> field==="name" ? {...s,name:value} : {...s,[field]:{...s[field],[key]:value}});
   const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value}}));
   /** Marking a book as being learned is how a family says "this is what we're on". */
