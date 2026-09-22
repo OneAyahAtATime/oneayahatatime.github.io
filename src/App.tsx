@@ -239,8 +239,8 @@ function JourneyIcon({status,className="",style}:{status:RevisionStatus;classNam
  * the whole Qur'an was finished. `honorific` is only used on that certificate.
  */
 type Honorific = "Hafizah" | "Hafiz";
-type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific; profileAt?:number; reviewedAt?:Record<string,number>; reviewRoundAt?:number; reviewSize?:number; reviewSizeAt?:number; datesCleared?:Record<string,number> };
-const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah", profileAt:0, reviewedAt:{}, reviewRoundAt:0, reviewSize:3, reviewSizeAt:0, datesCleared:{} };
+type Saved = { name: string; colored: Record<string,string>; dates: Record<string,string>; favorites: Record<string,string>; ayahs: Record<string,string>; ayahsAt?: Record<string,number>; workingOn:Record<string,CurrentWork>; statuses:Record<string,RevisionStatus>; statusAt:Record<string,number>; practiceDays:string[]; honorific?:Honorific; profileAt?:number; reviewedAt?:Record<string,number>; reviewRoundAt?:number; reviewSize?:number; reviewSizeAt?:number; datesCleared?:Record<string,number> };
+const empty: Saved = { name:"", colored:{}, dates:{}, favorites:{}, ayahs:{}, ayahsAt:{}, workingOn:{}, statuses:{}, statusAt:{}, practiceDays:[], honorific:"Hafizah", profileAt:0, reviewedAt:{}, reviewRoundAt:0, reviewSize:3, reviewSizeAt:0, datesCleared:{} };
 
 /**
  * The muraja'ah round.
@@ -340,6 +340,39 @@ const newReciterId=()=>`r${Date.now().toString(36)}${Math.random().toString(36).
 const MAX_NAME=24;
 
 /**
+ * A book's ayah note travels between devices under the same "newer wins" rule
+ * as everything else here — but the Supabase column that carries `ayahs` has
+ * no per-key stamp of its own, only a plain string per book. Without one, two
+ * devices that had each ever typed a real note for the same book could never
+ * tell whose was newer, and the value one device already had would simply be
+ * kept, forever, no matter how stale — exactly the "keep mine" class of bug
+ * TASK-423 found and fixed in Spelling Quest's word-list merge.
+ *
+ * The fix travels the stamp inside the very same jsonb value the column
+ * already stores, the way SQ's fix reused its own stamp-in-jsonb pattern:
+ * on the wire, a note is `"<millisecond stamp>::<text>"`, never a bare
+ * string. No Supabase column or function changes — the column already stores
+ * whatever jsonb string a client sends, and a note from an older build (no
+ * "::" prefix, or one written before this fix shipped) decodes as text with
+ * stamp 0, so it can never wrongly beat a real stamped edit but is never
+ * lost either. `ayahsAt` is the matching local stamp map, exactly like
+ * `statusAt` beside `statuses`.
+ */
+const encodeAyah = (text:string, at:number):string => `${Math.max(0,Math.floor(at||0))}::${text}`;
+const decodeAyah = (raw:string|undefined):{text:string; at:number} => {
+  if(!raw) return {text:"", at:0};
+  const m = /^(\d+)::([\s\S]*)$/.exec(raw);
+  if(!m) return {text:raw, at:0};
+  return {text:m[2], at:Number(m[1])||0};
+};
+/** Encodes a device's own ayah notes for the wire — see `encodeAyah`. */
+const encodeAyahsForWire = (ayahs:Record<string,string>, ayahsAt:Record<string,number>|undefined):Record<string,string> => {
+  const out:Record<string,string> = {};
+  for(const key of Object.keys(ayahs||{})) out[key] = encodeAyah(ayahs[key], ayahsAt?.[key] ?? 0);
+  return out;
+};
+
+/**
  * Carries the old one-note-per-Juz field across to per-book notes, matching the
  * remembered surah name back to its book.
  */
@@ -369,6 +402,9 @@ function normalize(raw:unknown,name:string):Saved {
     datesCleared:partial.datesCleared??{},
     favorites:partial.favorites??{},
     ayahs:partial.ayahs??ayahsFromWorkingOn(partial.workingOn),
+    // 0 means "never stamped" — a save written before this fix, or a note
+    // carried over from `workingOn`. See `encodeAyah`/`decodeAyah` above.
+    ayahsAt:partial.ayahsAt??{},
     workingOn:partial.workingOn??{},
     statuses:partial.statuses??{},
     statusAt:partial.statusAt??{},
@@ -1253,6 +1289,28 @@ export default function Home() {
       delete prunedDates[key];
       delete prunedDates[KHATM_KEY];
     }
+    /* A book's ayah note, per book, newer edit wins — see `encodeAyah` above
+       for why the stamp travels inside the string this column already holds.
+       This used to be `{...theirs.ayahs, ...mine.ayahs}`: whichever value
+       this device already had, real or ancient, always survived, and a
+       family's second device could never receive a newer note for a book it
+       had ever touched. That is the bug TASK-430 reported: a stale note
+       staying on the phone no matter what the desktop wrote. */
+    const ayahs:Record<string,string> = {...mine.ayahs};
+    const ayahsAt:Record<string,number> = {...(mine.ayahsAt||{})};
+    for(const [key,raw] of Object.entries(theirs.ayahs||{})) {
+      const {text,at} = decodeAyah(raw as string);
+      const ours = ayahsAt[key] ?? 0;
+      // Same tie convention as statuses above: equal stamps favor this device
+      // — but only once this device has a REAL stamp of its own. Without the
+      // `ours>0` guard, a device that had never touched this book (ours=0)
+      // would refuse an un-stamped legacy value (at=0) too, on the "0<=0"
+      // tie, and a note nobody had ever typed anywhere new would never show
+      // up on a fresh device at all.
+      if(ours>0 && at<=ours) continue;
+      ayahsAt[key] = at;
+      ayahs[key] = text;
+    }
     return {
       ...mine,
       // The newer edit wins. Failing that, a real name still beats an untouched
@@ -1272,7 +1330,7 @@ export default function Home() {
       dates: prunedDates,
       datesCleared,
       favorites: {...theirs.favorites, ...mine.favorites},
-      ayahs: {...theirs.ayahs, ...mine.ayahs},
+      ayahs, ayahsAt,
       workingOn: {...(theirs.working_on as Record<string,CurrentWork>), ...mine.workingOn},
       practiceDays: Array.from(new Set([...(theirs.practice_days||[]), ...(mine.practiceDays||[])])).sort(),
     };
@@ -1370,7 +1428,8 @@ export default function Home() {
         const mine = readProgress(r.id,r.name);
         if(!reciterHasBeenUsed(r.name,mine)) continue;    // don't send placeholders
         await pushReciter(fp,{ id:r.id, name:r.name, colored:mine.colored, statuses:outgoingStatuses(mine),
-          statusAt:mine.statusAt||{}, dates:mine.dates, favorites:mine.favorites, ayahs:mine.ayahs,
+          statusAt:mine.statusAt||{}, dates:mine.dates, favorites:mine.favorites,
+          ayahs:encodeAyahsForWire(mine.ayahs, mine.ayahsAt),
           workingOn:mine.workingOn, practiceDays:mine.practiceDays, honorific:mine.honorific ?? "Hafizah",
           profileAt:mine.profileAt ?? 0,
           reviewedAt:mine.reviewedAt ?? {}, reviewRoundAt:mine.reviewRoundAt ?? 0,
@@ -1788,7 +1847,7 @@ export default function Home() {
     }
     return {...s,colored,statuses,dates,datesCleared,statusAt:stampStatus(s.statusAt,[statusBook.key])}});setStatusBook(null)};
   const update = (field:"name"|"dates"|"favorites", key:string, value:string) => setSaved(s=> field==="name" ? {...s,name:value} : {...s,[field]:{...s[field],[key]:value}});
-  const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value}}));
+  const updateAyahs = (key:string,value:string) => setSaved(s=>({...s,ayahs:{...s.ayahs,[key]:value},ayahsAt:stampStatus(s.ayahsAt,[key])}));
   /** Marking a book as being learned is how a family says "this is what we're on". */
   const startLearning = (key:string) => setSaved(s=>({...s,statuses:{...s.statuses,[key]:"learning"},statusAt:stampStatus(s.statusAt,[key]),practiceDays:Array.from(new Set([...(s.practiceDays||[]),localDay()]))}));
 
